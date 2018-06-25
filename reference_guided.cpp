@@ -12,6 +12,7 @@
 #include <map>
 #include <thread>
 #include <mutex>
+#include "gact.h"
 #include "fasta.h"
 #include "ntcoding.h"
 #include "seed_pos_table.h"
@@ -127,10 +128,15 @@ void PrintTileLocation (std::string read_name, \
     strand << std::endl;
 }
 
-void AlignRead (int start_read_num, int last_read_num) {
+// each CPU thread aligns a batch of multiple reads against the SeedTable
+// the params start_read_num and last_read_num indicate which readIDs are to be aligned for each CPU thread
+void AlignReads (int start_read_num, int last_read_num) {
 
     uint32_t log_bin_size = (uint32_t) (log2(bin_size));
     int num_bins = 1 + (reference_length >> log_bin_size);
+
+    // candidate_hit_offset contains 64 bits
+    // the high 32 bits contain the position in the ref, the low 32 bits the position in the read/query
     uint64_t* candidate_hit_offset;
 
     struct timeval begin, finish;
@@ -160,6 +166,16 @@ void AlignRead (int start_read_num, int last_read_num) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
+            int ref_pos = candidate_hit_offset[i] >> 32;
+            int query_pos = candidate_hit_offset[i] & 0xffffffff;
+            int chr_id = bin_to_chr_id[ref_pos/bin_size];
+
+
+            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
+                reference_lengths[chr_id], len, \
+                tile_size, tile_overlap, \
+                ref_pos, query_pos, first_tile_score_threshold);
+
         }
         io_lock.unlock();
 
@@ -259,6 +275,7 @@ int main(int argc, char *argv[]) {
             reference_string += std::string((bin_size - (reference_seqs[i].length() % bin_size)), 'N');
             bin_to_chr_id[curr_bin++] = i;
         }
+        std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
     }
 
     reference_length = reference_string.length();
@@ -329,7 +346,7 @@ int main(int argc, char *argv[]) {
     int reads_per_thread = ceil(1.0*num_reads/num_threads);
     for (int k = 0; k < num_reads; k+=reads_per_thread) {
         int last_read = (k+reads_per_thread > num_reads) ? num_reads : k+reads_per_thread;
-        align_threads.push_back(std::thread(AlignRead, k, last_read));
+        align_threads.push_back(std::thread(AlignReads, k, last_read));
     }
     std::cout << align_threads.size() << " threads created\n";
     std::cout << "Synchronizing all threads...\n";

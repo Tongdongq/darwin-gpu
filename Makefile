@@ -5,6 +5,8 @@ CFLAGS = -O4
 #LFLAGS = -pg
 LFLAGS =
 
+CFLAGS += $(options)
+
 all: reference_guided 
 
 ntcoding.o: ntcoding.h ntcoding.cpp
@@ -25,7 +27,7 @@ chameleon.o: Chameleon.cpp
 config_file.o: ConfigFile.cpp
 	g++ -std=c++11 $(CFLAGS) -Wno-multichar -o config_file.o -c ConfigFile.cpp
 
-reference_guided: ntcoding.o fasta.o seed_pos_table.o chameleon.o config_file.o reference_guided.o 
+reference_guided: ntcoding.o fasta.o seed_pos_table.o chameleon.o config_file.o reference_guided.o
 	g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o gact.cpp align.cpp -o reference_guided -pthread 
 
 clean:

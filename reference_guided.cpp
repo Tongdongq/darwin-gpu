@@ -18,6 +18,9 @@
 #include "seed_pos_table.h"
 #include "ConfigFile.h"
 
+#ifndef Z_COMPILE_USED
+    #error "These files should be compiled using the z_compile.sh script"
+#endif
 
 #define PRINT_SEED_POS_CONSTRUCT TRUE
 

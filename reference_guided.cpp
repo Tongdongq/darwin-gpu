@@ -22,6 +22,10 @@
     #error "These files should be compiled using the z_compile.sh script"
 #endif
 
+#ifdef GPU
+    #define BATCH 1
+#endif
+
 #define PRINT_SEED_POS_CONSTRUCT TRUE
 
 //enum states {Z, D, I, M};
@@ -264,6 +268,11 @@ int main(int argc, char *argv[]) {
 
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
+#ifdef BATCH
+    NUM_BLOCKS = std::stoi(argv[3], nullptr);
+    THREADS_PER_BLOCK = std::stoi(argv[4], nullptr);
+    BATCH_SIZE = NUM_BLOCKS * THREADS_PER_BLOCK;
+#endif
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;

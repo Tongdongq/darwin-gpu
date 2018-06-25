@@ -1,5 +1,8 @@
 
 
+int NUM_BLOCKS;
+int THREADS_PER_BLOCK;
+
 
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \

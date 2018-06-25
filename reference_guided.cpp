@@ -169,16 +169,16 @@ void AlignReads (int start_read_num, int last_read_num) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
-            int ref_pos = candidate_hit_offset[i] >> 32;
-            int query_pos = candidate_hit_offset[i] & 0xffffffff;
+            int ref_pos = (candidate_hit_offset[i] >> 32);
             int chr_id = bin_to_chr_id[ref_pos/bin_size];
-
+            uint32_t start_bin = chr_id_to_start_bin[chr_id];
+            ref_pos -= start_bin*bin_size;
+            int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
-
         }
         io_lock.unlock();
 

@@ -162,11 +162,18 @@ void AlignReads (int start_read_num, int last_read_num) {
     //    long seconds = finish.tv_sec - begin.tv_sec;
     //    long mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
 
+#ifdef BATCH
+    GACT_call *GACT_calls_for, *GACT_calls_rev;
+#endif
+
     for (int k = start_read_num; k < last_read_num; k++) {
         int len = reads_lengths[k];
 
         // Forward reads
         int num_candidates = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
+#ifdef BATCH
+        GACT_calls_for = new GACT_call[num_candidates];
+#endif
         io_lock.lock();
         std::cout << "Read (+) " << k << ": " << num_candidates << std::endl;
         for (int i = 0; i < num_candidates; i++) {
@@ -179,15 +186,25 @@ void AlignReads (int start_read_num, int last_read_num) {
             ref_pos -= start_bin*bin_size;
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
+#ifdef BATCH
+            GACT_calls_for[i].ref_id = chr_id;
+            GACT_calls_for[i].query_id = k;
+            GACT_calls_for[i].ref_pos = ref_pos;
+            GACT_calls_for[i].query_pos = query_pos;
+#else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
+#endif
         }
         io_lock.unlock();
 
         // Reverse complement reads
         num_candidates = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
+#ifdef BATCH
+        GACT_calls_rev = new GACT_call[num_candidates];
+#endif
         io_lock.lock();
         std::cout << "Read (-) " << k << ": " << num_candidates << std::endl;
         for (int i = 0; i < num_candidates; i++) {
@@ -200,13 +217,25 @@ void AlignReads (int start_read_num, int last_read_num) {
             ref_pos -= start_bin*bin_size;
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
-            GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
+#ifdef BATCH
+            GACT_calls_rev[i].ref_id = chr_id;
+            GACT_calls_rev[i].query_id = k;
+            GACT_calls_rev[i].ref_pos = ref_pos;
+            GACT_calls_rev[i].query_pos = query_pos;
+#else   // perform GACT immediately
+            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
+#endif
         }
         io_lock.unlock();
-    }
+    }   // end for every read assigned to this CPU thread
+
+#ifdef BATCH
+    delete[] GACT_call_for;
+    delete[] GACT_call_rev;
+#endif
 
     delete[] bin_count_offset_array;
     delete[] nz_bins_array;

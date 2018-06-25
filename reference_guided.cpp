@@ -112,12 +112,19 @@ std::string RevComp(std::string seq) {
 }
 
 
-void PrintTileLocation (std::string read_name, uint32_t candidate_hit, uint32_t last_hit_offset, char strand) {
-    int chr_id = bin_to_chr_id[candidate_hit/bin_size];
-    std::string chr = reference_descrips[chr_id][0];
-    uint32_t start_bin = chr_id_to_start_bin[chr_id];
+void PrintTileLocation (std::string read_name, \
+    uint32_t candidate_hit, uint32_t last_hit_offset, char strand) {
 
-    std::cout << read_name << " " << chr << " " << candidate_hit - (start_bin*bin_size) << " " << last_hit_offset << " " << strand << std::endl;
+    int         chr_id    = bin_to_chr_id[candidate_hit/bin_size];
+    std::string chr       = reference_descrips[chr_id][0];
+    uint32_t    start_bin = chr_id_to_start_bin[chr_id];
+
+    std::cout << \
+    read_name << " " << \
+    chr << " " << \
+    candidate_hit - (start_bin*bin_size) << " " << \
+    last_hit_offset << " " << \
+    strand << std::endl;
 }
 
 void AlignRead (int start_read_num, int last_read_num) {
@@ -150,7 +157,9 @@ void AlignRead (int start_read_num, int last_read_num) {
         io_lock.lock();
         std::cout << "Read (+) " << k << ": " << num_candidates << std::endl;
         for (int i = 0; i < num_candidates; i++) {
-            PrintTileLocation(reads_descrips[k][0], (candidate_hit_offset[i] >> 32), ((candidate_hit_offset[i] << 32) >> 32), '+');
+            PrintTileLocation(reads_descrips[k][0], \
+                (candidate_hit_offset[i] >> 32), \
+                ((candidate_hit_offset[i] << 32) >> 32), '+');
         }
         io_lock.unlock();
 
@@ -159,7 +168,9 @@ void AlignRead (int start_read_num, int last_read_num) {
         io_lock.lock();
         std::cout << "Read (-) " << k << ": " << num_candidates << std::endl;
         for (int i = 0; i < num_candidates; i++) {
-            PrintTileLocation(reads_descrips[k][0], (candidate_hit_offset[i] >> 32), ((candidate_hit_offset[i] << 32) >> 32), '-');
+            PrintTileLocation(reads_descrips[k][0], \
+                (candidate_hit_offset[i] >> 32), \
+                ((candidate_hit_offset[i] << 32) >> 32), '-');
         }
         io_lock.unlock();
     }
@@ -176,7 +187,6 @@ int main(int argc, char *argv[]) {
     }
 
     ConfigFile cfg("params.cfg");
-
 
     // GACT scoring
     gact_sub_mat[0] = cfg.Value("GACT_scoring", "sub_AA");

@@ -53,7 +53,7 @@ void GACT (char *ref_str, char *query_str, \
     int first_tile_score = 0;
     bool first_tile = true;
    
-    //printf("Extend_GACT: ref_pos: %d, query_pos: %d, ref_length: %d, query_length: %d\n", ref_pos, query_pos, ref_length, query_length);
+    printf("GACT: ref_pos: %d, query_pos: %d, ref_length: %d, query_length: %d\n", ref_pos, query_pos, ref_length, query_length);
 
 
     // not for the first tile
@@ -191,7 +191,7 @@ void GACT (char *ref_str, char *query_str, \
         }
     }
 
-    printf("End of GACT, rpair: %d, ab: %d, bb: %d, ae: %d, be: %d, score: %d\n", rpair, abpos, bbpos, ref_pos, query_pos, total_score);
+    printf("End of GACT, rpair: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", rpair, abpos, ref_pos, bbpos, query_pos, total_score);
     rpair++;
 
     //std::cout << aligned_ref_str << std::endl << aligned_query_str << std::endl;

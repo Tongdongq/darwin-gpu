@@ -42,7 +42,7 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
   assert(ref_len < MAX_TILE_SIZE);
   assert(query_len < MAX_TILE_SIZE);
 
-  /*printf("AlignWithBT: ref_len: %d, query_len: %d, query_pos: %d, ref_pos: %d, reverse: %d, first: %d\n", ref_len, query_len, query_pos, ref_pos, reverse, first);//*/
+  printf("AlignWithBT: ref_len: %d, query_len: %d, query_pos: %d, ref_pos: %d, reverse: %d, first: %d\n", ref_len, query_len, query_pos, ref_pos, reverse, first);//*/
   /*for(int i = 0; i < ref_len; ++i){
     if(i % 10 == 0){printf(" ");}
     printf("%c", ref_seq[i]);
@@ -107,7 +107,6 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
   int pos_score = 0; 
   int max_i = 0; 
   int max_j = 0; 
-  int tmp = 0;
 
   for (int i = 1; i < ref_len + 1; i++) {
       for (int k = 1; k < MAX_TILE_SIZE + 1; k++) {
@@ -121,8 +120,10 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
       for (int j = 1; j < query_len + 1; j++) {
           //int ref_nt = (reverse) ? NtChar2Int(ref_seq[ref_len-i]) : NtChar2Int(ref_seq[i-1]);
           //int query_nt = (reverse) ? NtChar2Int(query_seq[query_len-j]) : NtChar2Int(query_seq[j-1]);
-          char ref_nt = (reverse) ? ref_seq[ref_len-i] : ref_seq[i-1];
-          char query_nt = (reverse) ? query_seq[query_len-j] : query_seq[j-1];
+          // reverse indicates the direction of the alignment
+          // 1: towards position = 0, 0: towards position = length
+          char ref_nt = (reverse) ? ref_seq[i-1] : ref_seq[ref_len-i];
+          char query_nt = (reverse) ? query_seq[j-1] : query_seq[query_len-j];
 
 //printf("query_nt: %d, %c\n", query_nt, query_seq[query_len-j]);
           /*int match;
@@ -134,7 +135,7 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
               match = sub_mat[query_nt*5 + ref_nt];
           }//*/
           int match = (query_nt == ref_nt) ? MATCH : MISMATCH;
-tmp+=match;
+
           //columnwise calculations
           // find out max value
           if (m_matrix_rd[j-1] > i_matrix_rd[j-1] && m_matrix_rd[j-1] > d_matrix_rd[j-1]) {

@@ -27,9 +27,10 @@ extern int gap_extend;
 
 // declared in reference_guided.cpp
 extern std::vector<std::string> reference_seqs;
-extern std::vector<int> reference_lengths;
+extern std::vector<long long int> reference_lengths;
 extern std::vector<std::string> reads_seqs;
-extern std::vector<int> reads_lengths;
+extern std::vector<std::string> rev_reads_seqs;
+extern std::vector<long long int> reads_lengths;
 
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \
@@ -272,8 +273,8 @@ int batch_no = 0;
 
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
-            int ref_length = reference_lengths[2*(c->ref_id)];
-            int query_length = reads_lengths[2*(c->query_id)];
+            int ref_length = reference_lengths[c->ref_id];
+            int query_length = reads_lengths[c->query_id];
 
             // prepare assignments
             if(c->reverse == 1){
@@ -304,8 +305,8 @@ int batch_no = 0;
                     c = &(calls[callidx]);
                     ref_pos = c->ref_pos;
                     query_pos = c->query_pos;
-                    ref_length = reference_lengths[2*(c->ref_id)];
-                    query_length = reads_lengths[2*(c->query_id)];
+                    ref_length = reference_lengths[c->ref_id];
+                    query_length = reads_lengths[c->query_id];
                 }
             }
 

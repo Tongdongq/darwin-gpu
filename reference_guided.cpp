@@ -69,8 +69,6 @@ uint32_t query_length;
 
 struct timeval start, end_time;
 
-// for some reason, the reference_lenghts vector contains alternating values - zeroes
-// same for reads_lenghts
 std::vector<long long int> reference_lengths;
 std::vector<std::string> reference_seqs;
 

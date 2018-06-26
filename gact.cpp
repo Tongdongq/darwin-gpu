@@ -7,11 +7,11 @@
 #include <cstdlib>
 #include <queue>
 #include "align.h"
+#include "gact.h"
 
 #ifdef TIME
     #include <chrono>
 #endif
-
 
 int sub_mat[25] = {
     1, -1, -1, -1, 0,
@@ -21,8 +21,15 @@ int sub_mat[25] = {
     0, 0, 0, 0, 0
 };
 
+// declared in cuda_header.h
 extern int gap_open;
 extern int gap_extend;
+
+// declared in reference_guided.cpp
+extern std::vector<std::string> reference_seqs;
+extern std::vector<int> reference_lengths;
+extern std::vector<std::string> reads_seqs;
+extern std::vector<int> reads_lengths;
 
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \
@@ -40,7 +47,7 @@ void GACT (char *ref_str, char *query_str, \
     
     int abpos, bbpos;
 
-    static int rpair = 0;
+    static int callidx = 0;
 
     // beginning for the left or the right extension
     //original starting point for the whole query
@@ -109,7 +116,7 @@ void GACT (char *ref_str, char *query_str, \
         }
         ref_pos -= (j);
         query_pos -= (i);
-        //printf("after tb: rpair: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d\n", rpair, ref_pos, query_pos, i, j);
+        //printf("after tb: callidx: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d\n", callidx, ref_pos, query_pos, i, j);
     }
 
     abpos = ref_pos;
@@ -191,78 +198,52 @@ void GACT (char *ref_str, char *query_str, \
         }
     }
 
-    printf("End of GACT, rpair: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", rpair, abpos, ref_pos, bbpos, query_pos, total_score);
-    rpair++;
+    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
+    callidx++;
 
     //std::cout << aligned_ref_str << std::endl << aligned_query_str << std::endl;
     //std::cout << "First tile score: " <<  first_tile_score << " Total score: " << total_score << std::endl << std::endl;
 } // end GACT()
 
-void GACT_Batch(std::vector<std::string> ref_strs, \
-    std::vector<std::string> query_strs, \
-    int tile_size, int tile_overlap, \
-    int first_tile_score_threshold, \
-    int ref_pos, int query_pos, int num_blocks, int threads_per_block){
+#ifdef BATCH
+void GACT_Batch(GACT_call *calls, int num_calls){
 
-    int num_rpairs = ref_strs.size();
     int early_terminate = tile_size - tile_overlap;
 
-    std::vector<int> ref_poss(num_rpairs, ref_pos);
-    std::vector<int> query_poss(num_rpairs, query_pos);
+    std::vector<std::queue<int> > BT_statess(BATCH_SIZE);
 
-    /*for(int i = 0; i < num_rpairs; ++i){
-        ref_poss.push_back(ref_pos);
-        query_poss.push_back(query_pos);
-    }*/
-
-    std::vector<std::queue<int> > BT_statess(num_rpairs);
-   
     //output of the function
-    std::vector<std::string> aligned_ref_strs(num_rpairs);
-    std::vector<std::string> aligned_query_strs(num_rpairs);
-    
-    //length of the complete sequences
-    std::vector<int> ref_lengths(num_rpairs);
-    std::vector<int> query_lengths(num_rpairs);
-    for(int i = 0; i < num_rpairs; ++i){
-        ref_lengths[i] = ref_strs[i].length();
-        query_lengths[i] = query_strs[i].length();
-    }
-    
-    std::vector<int> abpos(num_rpairs);
-    std::vector<int> bbpos(num_rpairs);
+    std::vector<std::string> aligned_ref_strs(num_calls);
+    std::vector<std::string> aligned_query_strs(num_calls);
 
-    // beginning for the left or the right extension
-    //original starting point for the whole query
-    std::vector<int> rev_ref_poss = ref_poss;
-    std::vector<int> rev_query_poss = query_poss;
+    std::vector<int> first_tile_scores(num_calls);
 
-    std::vector<int> first_tile_scores(num_rpairs);
-
-    std::vector<char> rpair_statuss(num_rpairs, 0);     // 0: reverse, 1: forward
-    std::vector<char> firsts(num_rpairs, 1);            // 1: first tile
-
-    int BATCH_SIZE = num_blocks * threads_per_block;
-    int rpairidx = BATCH_SIZE;
+    int next_callidx = BATCH_SIZE;
     int match = 1;
     int mismatch = -1;
-    int rpairsdone = 0;
+    int calls_done = 0;
 
     std::vector<int> assignments(BATCH_SIZE);
-    std::vector<int> forward(BATCH_SIZE);    
     std::vector<int> ref_tile_lengths(BATCH_SIZE);
     std::vector<int> query_tile_lengths(BATCH_SIZE);
-    if(num_rpairs < BATCH_SIZE){printf("ERROR not enough rpairs for BATCH\n");return;}
-    for(int i = 0; i < BATCH_SIZE; ++i){
-        assignments[i] = i;
+    if(num_calls < BATCH_SIZE){
+        printf("WARNING not enough callidxs for BATCH\n");
+        for(int i = 0; i < num_calls; ++i){
+            assignments[i] = i;
+        }
+        for(int i; i < BATCH_SIZE; ++i){
+            assignments[i] = -1;
+        }
+    }else{
+        for(int i = 0; i < BATCH_SIZE; ++i){
+            assignments[i] = i;
+        }
     }
 
     std::vector<std::string> ref_seqs(BATCH_SIZE);
     std::vector<std::string> query_seqs(BATCH_SIZE);
     std::vector<int> ref_lens(BATCH_SIZE);
     std::vector<int> query_lens(BATCH_SIZE);
-    //std::vector<int> ref_poss_b(BATCH_SIZE);
-    //std::vector<int> query_poss_b(BATCH_SIZE);
     std::vector<char> terminate(BATCH_SIZE);
     std::vector<char> reverses(BATCH_SIZE);
     std::vector<char> firsts_b(BATCH_SIZE);
@@ -278,73 +259,72 @@ void GACT_Batch(std::vector<std::string> ref_strs, \
     GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match, mismatch, early_terminate, &s);
 #endif
 int batch_no = 0;
-    while(rpairsdone < num_rpairs){
+    while(calls_done < num_calls){
 //printf("batch_no: %d\n", batch_no++);
-        for(int j = 0; j < BATCH_SIZE; ++j){
-            int next_forward = 0;
-            int next_rpair = 0;
-            int rpair = assignments[j];
+        for(int t = 0; t < BATCH_SIZE; ++t){
+            int callidx = assignments[t];
+            GACT_call *c = &(calls[callidx]);
 
-            if(rpair == -1){continue;}
+            if(callidx == -1){continue;}
 
-            int ref_pos = ref_poss[rpair];
-            int query_pos = query_poss[rpair];
-            int ref_length = ref_lengths[rpair];
-            int query_length = query_lengths[rpair];
+            int ref_pos = c->ref_pos;
+            int query_pos = c->query_pos;
+            int ref_length = reference_lengths[2*(c->ref_id)];
+            int query_length = reads_lengths[2*(c->query_id)];
 
             // prepare assignments
-            if(rpair_statuss[rpair] == 0){
-                if(ref_pos <= 0 || query_pos <= 0 || terminate[j]){
-                    //printf("T%d reverse dir done\n", j);
-                    abpos[rpair] = ref_pos;
-                    bbpos[rpair] = query_pos;
-                    ref_pos = rev_ref_poss[rpair];
-                    query_pos = rev_query_poss[rpair];
-                    ref_poss[rpair] = ref_pos;
-                    query_poss[rpair] = query_pos;
-                    ref_poss[j] = ref_pos;
-                    query_poss[j] = query_pos;
-                    next_forward = 1;
-                    rpair_statuss[rpair] = 1;
-                    terminate[j] = 0;
+            if(c->reverse == 1){
+                if(ref_pos <= 0 || query_pos <= 0 || terminate[t]){
+                    //printf("T%d reverse dir done\n", t);
+                    // store begin of alignment in ref_bpos and query_bpos
+                    int t1 = c->ref_bpos;
+                    int t2 = c->query_bpos;
+                    c->ref_bpos = ref_pos;
+                    c->query_bpos = query_pos;
+                    ref_pos = t1;
+                    query_pos = t2;
+                    c->reverse = 0;
+                    c->terminate = 0;
                 }
             }else{
-                if(ref_pos >= ref_length || query_pos >= query_length || terminate[j]){
-                    printf("End of GACT, rpair: %d, ab: %d, bb: %d, ae: %d, be: %d\n", rpair, abpos[rpair], bbpos[rpair], ref_pos, query_pos);
-                    next_rpair = 1;
-                    rpairsdone++;
-                    assignments[j] = rpairidx;
-                    if(rpairidx >= num_rpairs){
-                        assignments[j] = -1;
-                        //printf("T%d idle\n", j);
+                if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
+                    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                    calls_done++;
+                    assignments[t] = next_callidx;
+                    if(next_callidx >= num_calls){
+                        assignments[t] = -1;
+                        //printf("T%d idle\n", t);
                         continue;
                     }
-                    rpair = rpairidx++;
-                    terminate[j] = 0;
-                    ref_pos = ref_poss[rpair];
-                    query_pos = query_poss[rpair];
+                    callidx = next_callidx++;
+                    c = &(calls[callidx]);
+                    ref_pos = c->ref_pos;
+                    query_pos = c->query_pos;
+                    ref_length = reference_lengths[2*(c->ref_id)];
+                    query_length = reads_lengths[2*(c->query_id)];
                 }
             }
 
             // prepare batch
             // if first tile
-            firsts_b[j] = firsts[rpair];
+            firsts_b[t] = c->first;
 
             // if reverse
-            if(rpair_statuss[rpair] == 0){
-                ref_lens[j] = (ref_pos > tile_size) ? tile_size : ref_pos;
-                query_lens[j] = (query_pos > tile_size) ? tile_size : query_pos;
-                ref_seqs[j] = ref_strs[rpair].substr(ref_pos-ref_lens[j], ref_lens[j]);
-                query_seqs[j] = query_strs[rpair].substr(query_pos-query_lens[j], query_lens[j]);
-                reverses[j] = 0;
+            if(c->reverse == 1){
+                ref_lens[t] = (ref_pos > tile_size) ? tile_size : ref_pos;
+                query_lens[t] = (query_pos > tile_size) ? tile_size : query_pos;
+                ref_seqs[t] = reference_seqs[c->ref_id].substr(ref_pos-ref_lens[t], ref_lens[t]);
+                query_seqs[t] = reads_seqs[c->query_id].substr(query_pos-query_lens[t], query_lens[t]);
+                reverses[t] = 1;
             }else{      // else forward
-                ref_lens[j] = (ref_pos + tile_size < ref_length) ? tile_size : ref_length - ref_pos;
-                query_lens[j] = (query_pos + tile_size < query_length) ? tile_size : query_length - query_pos;
-                ref_seqs[j] = ref_strs[rpair].substr(ref_pos, ref_lens[j]);
-                query_seqs[j] = query_strs[rpair].substr(query_pos, query_lens[j]);
-                reverses[j] = 1;
+                ref_lens[t] = (ref_pos + tile_size < ref_length) ? tile_size : ref_length - ref_pos;
+                query_lens[t] = (query_pos + tile_size < query_length) ? tile_size : query_length - query_pos;
+                ref_seqs[t] = reference_seqs[c->ref_id].substr(ref_pos, ref_lens[t]);
+                query_seqs[t] = reads_seqs[c->query_id].substr(query_pos, query_lens[t]);
+                reverses[t] = 0;
+                printf("T%d ref_len[t]: %d, ref_pos: %d, ref_length: %d\n", t, ref_lens[t], ref_pos, ref_length);
             }
-            //printf("T%d assignment rpair: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d\n", j, rpair, reverses[j], firsts_b[j], ref_pos, query_pos);
+            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos);
         }   // end prepare batch
 
 #ifdef TIME
@@ -367,17 +347,18 @@ int batch_no = 0;
 #endif
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
-            int rpair = assignments[t];
+            int callidx = assignments[t];
+            GACT_call *c = &(calls[callidx]);
 
-            if(rpair == -1){continue;}
+            if(callidx == -1){continue;}
 
             int i = 0;
             int j = 0;
 
             std::queue<int> BT_states = BT_statess[t];
-            bool first_tile = firsts[rpair];
-            int ref_pos = ref_poss[rpair];
-            int query_pos = query_poss[rpair];
+            bool first_tile = c->first;
+            int ref_pos = c->ref_pos;
+            int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
             int tile_score = BT_states.front();
@@ -385,16 +366,16 @@ int batch_no = 0;
             BT_states.pop();
             
             // if reverse
-            if(rpair_statuss[rpair] == 0){
+            if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
                 if (first_tile) {
                     ref_pos = ref_pos - ref_tile_length + BT_states.front();
                     BT_states.pop();
                     query_pos = query_pos - query_tile_length + BT_states.front();
                     BT_states.pop();
-                    rev_ref_poss[rpair] = ref_pos;
-                    rev_query_poss[rpair] = query_pos;
-                    first_tile_scores[rpair] = tile_score;
+                    c->ref_bpos = ref_pos;
+                    c->query_bpos = query_pos;
+                    c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
                         break;
                     }
@@ -404,19 +385,19 @@ int batch_no = 0;
                     int state = BT_states.front();
                     BT_states.pop();
                     if (state == M) {
-                        aligned_ref_strs[rpair].insert(0, 1, ref_strs[rpair][ref_pos - j - 1]);
-                        aligned_query_strs[rpair].insert(0, 1, query_strs[rpair][query_pos - i - 1]);
+                        aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
+                        aligned_query_strs[callidx].insert(0, 1, reads_seqs[c->query_id][query_pos - i - 1]);
                         i += 1;
                         j += 1;
                     }
                     if (state == I) {
-                        aligned_ref_strs[rpair].insert(0, 1, ref_strs[rpair][ref_pos - j - 1]);
-                        aligned_query_strs[rpair].insert(0, 1, '-');
+                        aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
+                        aligned_query_strs[callidx].insert(0, 1, '-');
                         j += 1;
                     }
                     if (state == D) {
-                        aligned_ref_strs[rpair].insert(0, 1, '-');
-                        aligned_query_strs[rpair].insert(0, 1, query_strs[rpair][query_pos - i - 1]);
+                        aligned_ref_strs[callidx].insert(0, 1, '-');
+                        aligned_query_strs[callidx].insert(0, 1, reads_seqs[c->query_id][query_pos - i - 1]);
                         i += 1;
                     }
                 }
@@ -429,7 +410,7 @@ int batch_no = 0;
                     BT_states.pop();
                     query_pos = query_pos + query_tile_length - BT_states.front();
                     BT_states.pop();
-                    first_tile_scores[rpair] = tile_score;
+                    c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
                         break;
                     }
@@ -439,19 +420,19 @@ int batch_no = 0;
                     int state = BT_states.front();
                     BT_states.pop();
                     if (state == M) {
-                        aligned_ref_strs[rpair] += ref_strs[rpair][ref_pos + j];
-                        aligned_query_strs[rpair] += (query_strs[rpair][query_pos + i]);
+                        aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
+                        aligned_query_strs[callidx] += (reads_seqs[c->query_id][query_pos + i]);
                         i += 1;
                         j += 1;
                     }
                     if (state == I) {
-                        aligned_ref_strs[rpair] += ref_strs[rpair][ref_pos + j];
-                        aligned_query_strs[rpair] += '-';
+                        aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
+                        aligned_query_strs[callidx] += '-';
                         j += 1;
                     }
                     if (state == D) {
-                        aligned_ref_strs[rpair] += '-';
-                        aligned_query_strs[rpair] += query_strs[rpair][query_pos + i];
+                        aligned_ref_strs[callidx] += '-';
+                        aligned_query_strs[callidx] += reads_seqs[c->query_id][query_pos + i];
                         i += 1;
                     }
                 }
@@ -460,14 +441,14 @@ int batch_no = 0;
                 query_pos += (i);
             }   // end traceback
 
-            firsts[rpair] = first_tile;
+            c->first = first_tile;
 
             if(i == 0 || j == 0){
                 terminate[t] = 1;
             }
-            ref_poss[rpair] = ref_pos;
-            query_poss[rpair] = query_pos;
-            //printf("T%d after tb: rpair: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, rpair, ref_pos, query_pos, terminate[t], rpair_statuss[rpair], i, j);
+            c->ref_pos = ref_pos;
+            c->query_pos = query_pos;
+            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 
     } // end main loop
@@ -479,6 +460,6 @@ int batch_no = 0;
 #endif
 
 } // end GACT_Batch()
-
+#endif  // BATCH
 
 

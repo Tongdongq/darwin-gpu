@@ -30,6 +30,10 @@
 
 //enum states {Z, D, I, M};
 
+int NUM_BLOCKS;
+int THREADS_PER_BLOCK;
+int BATCH_SIZE;
+
 // GACT scoring
 int gact_sub_mat[10];
 int gap_open;
@@ -65,6 +69,8 @@ uint32_t query_length;
 
 struct timeval start, end_time;
 
+// for some reason, the reference_lenghts vector contains alternating values - zeroes
+// same for reads_lenghts
 std::vector<long long int> reference_lengths;
 std::vector<std::string> reference_seqs;
 
@@ -166,17 +172,19 @@ void AlignReads (int start_read_num, int last_read_num) {
     GACT_call *GACT_calls_for, *GACT_calls_rev;
 #endif
 
+    int num_candidates_for, num_candidates_rev;
+
     for (int k = start_read_num; k < last_read_num; k++) {
         int len = reads_lengths[k];
 
         // Forward reads
-        int num_candidates = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
+        num_candidates_for = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
 #ifdef BATCH
-        GACT_calls_for = new GACT_call[num_candidates];
+        GACT_calls_for = new GACT_call[num_candidates_for];
 #endif
         io_lock.lock();
-        std::cout << "Read (+) " << k << ": " << num_candidates << std::endl;
-        for (int i = 0; i < num_candidates; i++) {
+        std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
+        for (int i = 0; i < num_candidates_for; i++) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
@@ -192,17 +200,20 @@ void AlignReads (int start_read_num, int last_read_num) {
             GACT_calls_for[i].query_id = k;
             GACT_calls_for[i].ref_pos = ref_pos;
             GACT_calls_for[i].query_pos = query_pos;
+            GACT_calls_for[i].score = 0;
+            GACT_calls_for[i].first = 1;
+            GACT_calls_for[i].reverse = 1;
+            GACT_calls_for[i].terminate = 0;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
 #endif
-        }   // end for all num_candidates seed hits
+        }   // end for all num_candidates_for seed hits
         io_lock.unlock();
 #ifdef BATCH
-        rpairs_for[num_rpairs-1].eidx = num_candidates;
-        for(int i = 0; i < num_candidates; ++i){
+        for(int i = 0; i < num_candidates_for; ++i){
         	GACT_call *c = &(GACT_calls_for[i]);
         	printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
         }
@@ -210,13 +221,13 @@ void AlignReads (int start_read_num, int last_read_num) {
 
 
         // Reverse complement reads
-        num_candidates = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
+        int num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
 #ifdef BATCH
-        GACT_calls_rev = new GACT_call[num_candidates];
+        GACT_calls_rev = new GACT_call[num_candidates_rev];
 #endif
         io_lock.lock();
-        std::cout << "Read (-) " << k << ": " << num_candidates << std::endl;
-        for (int i = 0; i < num_candidates; i++) {
+        std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
+        for (int i = 0; i < num_candidates_rev; i++) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '-');
@@ -231,19 +242,25 @@ void AlignReads (int start_read_num, int last_read_num) {
             GACT_calls_rev[i].query_id = k;
             GACT_calls_rev[i].ref_pos = ref_pos;
             GACT_calls_rev[i].query_pos = query_pos;
+            GACT_calls_rev[i].score = 0;
+            GACT_calls_rev[i].first = 1;
+            GACT_calls_rev[i].reverse = 1;
+            GACT_calls_rev[i].terminate = 0;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
 #endif
-        }   // end for all num_candidates seed hits
+        }   // end for all num_candidates_rev seed hits
         io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
+    printf("num_candidates: %d %d\n", num_candidates_for, num_candidates_rev);
+
 #ifdef BATCH
 
-    //GACT_Batch();
+    GACT_Batch(GACT_calls_for, num_candidates_for);
 
     delete[] GACT_calls_for;
     delete[] GACT_calls_rev;
@@ -256,19 +273,9 @@ void AlignReads (int start_read_num, int last_read_num) {
 int main(int argc, char *argv[]) {
 
     if (argc < 3) {
-        fprintf(stderr, "Usage: ./reference_guided <REFERENCE>.fasta <READS>.fasta \n");
+        fprintf(stderr, "Usage: ./reference_guided <REFERENCE>.fasta <READS>.fasta [NUM_BLOCKS THREADS_PER_BLOCK]\n");
         exit(1);
     }
-
-#ifdef BATCH
-#ifdef GPU
-    std::cout << "Using BATCH GPU" << std::endl;
-#else
-    std::cout << "Using BATCH" << std::endl;
-#endif	// end GPU
-#else
-    std::cout << "Running on cpu" << std::endl;
-#endif	// end BATCH
 
     ConfigFile cfg("params.cfg");
 
@@ -324,6 +331,16 @@ int main(int argc, char *argv[]) {
     THREADS_PER_BLOCK = std::stoi(argv[4], nullptr);
     BATCH_SIZE = NUM_BLOCKS * THREADS_PER_BLOCK;
 #endif
+
+#ifdef BATCH
+#ifdef GPU
+    printf("Using BATCH GPU, batch_size: %d * %d = %d", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+#else
+    printf("Using BATCH, batch_size: %d * %d = %d", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+#endif	// end GPU
+#else
+    std::cout << "Running on cpu" << std::endl;
+#endif	// end BATCH
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;

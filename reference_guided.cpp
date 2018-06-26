@@ -164,6 +164,8 @@ void AlignReads (int start_read_num, int last_read_num) {
 
 #ifdef BATCH
     GACT_call *GACT_calls_for, *GACT_calls_rev;
+    //std::vector<Readpair> rpairs_for, rpairs_rev;
+    //int num_rpairs = 0;
 #endif
 
     for (int k = start_read_num; k < last_read_num; k++) {
@@ -173,6 +175,17 @@ void AlignReads (int start_read_num, int last_read_num) {
         int num_candidates = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
 #ifdef BATCH
         GACT_calls_for = new GACT_call[num_candidates];
+        /*int last_ref_readID = -1, last_query_readID = -1;
+        if(num_candidates > 0){
+            int ref_pos = (candidate_hit_offset[0] >> 32);
+            int chr_id = bin_to_chr_id[ref_pos/bin_size];
+            Readpair r;
+            r.bidx = 0;
+            r.ref_id = chr_id;
+            r.query_id = k;
+            rpairs_for.push_back(r);
+            num_rpairs++;
+        }//*/
 #endif
         io_lock.lock();
         std::cout << "Read (+) " << k << ": " << num_candidates << std::endl;
@@ -187,18 +200,42 @@ void AlignReads (int start_read_num, int last_read_num) {
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
 #ifdef BATCH
+            // store GACT_call
             GACT_calls_for[i].ref_id = chr_id;
             GACT_calls_for[i].query_id = k;
             GACT_calls_for[i].ref_pos = ref_pos;
             GACT_calls_for[i].query_pos = query_pos;
+
+            // store Readpair
+            /*if(last_ref_readID != chr_id || last_query_readID != k){
+                rpairs_for[num_rpairs-1].eidx = i - 1;
+                Readpair r;
+                r.ref_id = chr_id;
+                r.query_id = k;
+                r.bidx = i;
+                rpairs_for.push_back(r);
+                num_rpairs++;
+            }//*/
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
 #endif
-        }
+        }   // end for all num_candidates seed hits
         io_lock.unlock();
+#ifdef BATCH
+        rpairs_for[num_rpairs-1].eidx = num_candidates;
+        for(int i = 0; i < num_candidates; ++i){
+        	GACT_call *c = &(GACT_calls_for[i]);
+        	printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
+        }
+        /*for(int i = 0; i < num_rpairs; ++i){
+            Readpair *r = &(rpairs_for[i]);
+            printf("Rpair %d, ref_id: %d, query_id: %d, bidx: %d, eidx: %d\n", i, r->ref_id, r->query_id, r->bidx, r->eidx);
+        }//*/
+#endif
+
 
         // Reverse complement reads
         num_candidates = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
@@ -228,13 +265,16 @@ void AlignReads (int start_read_num, int last_read_num) {
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
 #endif
-        }
+        }   // end for all num_candidates seed hits
         io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
 #ifdef BATCH
-    delete[] GACT_call_for;
-    delete[] GACT_call_rev;
+
+    //GACT_Batch();
+
+    delete[] GACT_calls_for;
+    delete[] GACT_calls_rev;
 #endif
 
     delete[] bin_count_offset_array;
@@ -247,6 +287,16 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: ./reference_guided <REFERENCE>.fasta <READS>.fasta \n");
         exit(1);
     }
+
+#ifdef BATCH
+#ifdef GPU
+    std::cout << "Using BATCH GPU" << std::endl;
+#else
+    std::cout << "Using BATCH" << std::endl;
+#endif	// end GPU
+#else
+    std::cout << "Running on cpu" << std::endl;
+#endif	// end BATCH
 
     ConfigFile cfg("params.cfg");
 

@@ -201,7 +201,6 @@ void AlignReads (int start_read_num, int last_read_num) {
             GACT_calls_for[i].score = 0;
             GACT_calls_for[i].first = 1;
             GACT_calls_for[i].reverse = 1;
-            GACT_calls_for[i].terminate = 0;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
@@ -243,7 +242,6 @@ void AlignReads (int start_read_num, int last_read_num) {
             GACT_calls_rev[i].score = 0;
             GACT_calls_rev[i].first = 1;
             GACT_calls_rev[i].reverse = 1;
-            GACT_calls_rev[i].terminate = 0;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \

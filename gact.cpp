@@ -288,7 +288,7 @@ int batch_no = 0;
                     ref_pos = t1;
                     query_pos = t2;
                     c->reverse = 0;
-                    c->terminate = 0;
+                    terminate[t] = 0;
                 }
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){

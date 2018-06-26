@@ -24,7 +24,6 @@ typedef struct {
     int first_tile_score;     // score of first tile
     char first;     // 1: first tile of the GACT_call, 0: not first tile
     char reverse;   // 1: operate in reverse (towards pos = 0), 0: operate in forward direction (towards pos = len)
-    char terminate; // 1: terminate current GACT_call because previous tile did not have enough alignment, 0: continue with next tile
 } GACT_call;
 
 // each GPU thread in the batch has its own GACT_call assignment

@@ -18,6 +18,10 @@ std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, std
     bool reverse = (reverses[j] == 1);
     bool first = (firsts[j] == 1);
 
+    if(ref_pos == -1){
+      continue;
+    }
+
     std::queue<int> BT_states;
 
     BT_states = AlignWithBT(ref_seq, ref_len, query_seq, query_len, \
@@ -122,8 +126,13 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
           //int query_nt = (reverse) ? NtChar2Int(query_seq[query_len-j]) : NtChar2Int(query_seq[j-1]);
           // reverse indicates the direction of the alignment
           // 1: towards position = 0, 0: towards position = length
+#ifdef BATCH
           char ref_nt = (reverse) ? ref_seq[i-1] : ref_seq[ref_len-i];
           char query_nt = (reverse) ? query_seq[j-1] : query_seq[query_len-j];
+#else
+          char ref_nt = (reverse) ? ref_seq[ref_len-i] : ref_seq[i-1];
+          char query_nt = (reverse) ? query_seq[query_len-j] : query_seq[j-1];
+#endif
 
 //printf("query_nt: %d, %c\n", query_nt, query_seq[query_len-j]);
           /*int match;

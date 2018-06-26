@@ -265,7 +265,10 @@ int batch_no = 0;
             int callidx = assignments[t];
             GACT_call *c = &(calls[callidx]);
 
-            if(callidx == -1){continue;}
+            if(callidx == -1){
+                ref_lens[t] = -1;
+                continue;
+            }
 
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
@@ -293,6 +296,7 @@ int batch_no = 0;
                     assignments[t] = next_callidx;
                     if(next_callidx >= num_calls){
                         assignments[t] = -1;
+                        ref_lens[t] = -1;
                         //printf("T%d idle\n", t);
                         continue;
                     }

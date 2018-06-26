@@ -207,11 +207,21 @@ void GACT (char *ref_str, char *query_str, \
 } // end GACT()
 
 #ifdef BATCH
-void GACT_Batch(GACT_call *calls, int num_calls){
+void GACT_Batch(GACT_call *calls, int num_calls, bool complement){
 
     int early_terminate = tile_size - tile_overlap;
 
     std::vector<std::queue<int> > BT_statess(BATCH_SIZE);
+
+    std::vector<std::string> *reads_seqs_p;
+
+    if(complement == true){
+        reads_seqs_p = &rev_reads_seqs;
+    }else{
+        reads_seqs_p = &reads_seqs;
+    }
+
+    printf("GACT_Batch, num_calls: %d\n", num_calls);
 
     //output of the function
     std::vector<std::string> aligned_ref_strs(num_calls);
@@ -319,17 +329,16 @@ int batch_no = 0;
                 ref_lens[t] = (ref_pos > tile_size) ? tile_size : ref_pos;
                 query_lens[t] = (query_pos > tile_size) ? tile_size : query_pos;
                 ref_seqs[t] = reference_seqs[c->ref_id].substr(ref_pos-ref_lens[t], ref_lens[t]);
-                query_seqs[t] = reads_seqs[c->query_id].substr(query_pos-query_lens[t], query_lens[t]);
+                query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos-query_lens[t], query_lens[t]);
                 reverses[t] = 1;
             }else{      // else forward
                 ref_lens[t] = (ref_pos + tile_size < ref_length) ? tile_size : ref_length - ref_pos;
                 query_lens[t] = (query_pos + tile_size < query_length) ? tile_size : query_length - query_pos;
                 ref_seqs[t] = reference_seqs[c->ref_id].substr(ref_pos, ref_lens[t]);
-                query_seqs[t] = reads_seqs[c->query_id].substr(query_pos, query_lens[t]);
+                query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos, query_lens[t]);
                 reverses[t] = 0;
-                printf("T%d ref_len[t]: %d, ref_pos: %d, ref_length: %d\n", t, ref_lens[t], ref_pos, ref_length);
             }
-            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos);
+            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos);
         }   // end prepare batch
 
 #ifdef TIME
@@ -391,7 +400,7 @@ int batch_no = 0;
                     BT_states.pop();
                     if (state == M) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
-                        aligned_query_strs[callidx].insert(0, 1, reads_seqs[c->query_id][query_pos - i - 1]);
+                        aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
                         i += 1;
                         j += 1;
                     }
@@ -402,7 +411,7 @@ int batch_no = 0;
                     }
                     if (state == D) {
                         aligned_ref_strs[callidx].insert(0, 1, '-');
-                        aligned_query_strs[callidx].insert(0, 1, reads_seqs[c->query_id][query_pos - i - 1]);
+                        aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
                         i += 1;
                     }
                 }
@@ -426,7 +435,7 @@ int batch_no = 0;
                     BT_states.pop();
                     if (state == M) {
                         aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
-                        aligned_query_strs[callidx] += (reads_seqs[c->query_id][query_pos + i]);
+                        aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);
                         i += 1;
                         j += 1;
                     }
@@ -437,7 +446,7 @@ int batch_no = 0;
                     }
                     if (state == D) {
                         aligned_ref_strs[callidx] += '-';
-                        aligned_query_strs[callidx] += reads_seqs[c->query_id][query_pos + i];
+                        aligned_query_strs[callidx] += reads_seqs_p->at(c->query_id)[query_pos + i];
                         i += 1;
                     }
                 }

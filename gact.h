@@ -38,6 +38,6 @@ void GACT (char *ref_str, char *query_str, \
     int ref_pos, int query_pos, int first_tile_score_threshold);
 
 // implemented in gact.cpp
-void GACT_Batch(GACT_call *calls, int num_calls);
+void GACT_Batch(GACT_call *calls, int num_calls, bool complement);
 
 #endif  // GACT_H

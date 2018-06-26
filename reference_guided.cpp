@@ -218,7 +218,7 @@ void AlignReads (int start_read_num, int last_read_num) {
 
 
         // Reverse complement reads
-        int num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
+        num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
 #ifdef BATCH
         GACT_calls_rev = new GACT_call[num_candidates_rev];
 #endif
@@ -243,7 +243,7 @@ void AlignReads (int start_read_num, int last_read_num) {
             GACT_calls_rev[i].first = 1;
             GACT_calls_rev[i].reverse = 1;
 #else   // perform GACT immediately
-            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
+            GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold);
@@ -256,7 +256,8 @@ void AlignReads (int start_read_num, int last_read_num) {
 
 #ifdef BATCH
 
-    GACT_Batch(GACT_calls_for, num_candidates_for);
+    GACT_Batch(GACT_calls_for, num_candidates_for, false);
+    GACT_Batch(GACT_calls_rev, num_candidates_rev, true);
 
     delete[] GACT_calls_for;
     delete[] GACT_calls_rev;

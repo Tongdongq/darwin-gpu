@@ -57,6 +57,7 @@ export options=$options
 export gpu_options=$gpu_options
 
 # compile
+make clean
 make
 
 # let user know what options he used

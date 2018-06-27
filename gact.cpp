@@ -303,7 +303,7 @@ int batch_no = 0;
                 }
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
-                    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx+offset, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
                     calls_done++;
                     assignments[t] = next_callidx;
                     if(next_callidx >= num_calls){
@@ -318,6 +318,7 @@ int batch_no = 0;
                     query_pos = c->query_pos;
                     ref_length = reference_lengths[c->ref_id];
                     query_length = reads_lengths[c->query_id];
+                    terminate[t] = 0;
                 }
             }
 
@@ -379,7 +380,7 @@ int batch_no = 0;
             int tile_score = BT_states.front();
             int first_tile_score;
             BT_states.pop();
-            
+
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
@@ -463,7 +464,7 @@ int batch_no = 0;
             }
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
-            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx, ref_pos, query_pos, terminate[t], c->reverse, i, j);
+            //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 
     } // end main loop

@@ -48,7 +48,7 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
   assert(ref_len < MAX_TILE_SIZE);
   assert(query_len < MAX_TILE_SIZE);
 
-  printf("AlignWithBT: ref_len: %d, query_len: %d, query_pos: %d, ref_pos: %d, reverse: %d, first: %d\n", ref_len, query_len, query_pos, ref_pos, reverse, first);//*/
+  //printf("AlignWithBT: ref_len: %d, query_len: %d, query_pos: %d, ref_pos: %d, reverse: %d, first: %d\n", ref_len, query_len, query_pos, ref_pos, reverse, first);//*/
   /*for(int i = 0; i < ref_len; ++i){
     if(i % 10 == 0){printf(" ");}
     printf("%c", ref_seq[i]);

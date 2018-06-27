@@ -277,8 +277,8 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
         }
     };
     BT_states[0] = i - 1;
-    //printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
-    tid, i_curr, j_curr, i_steps, j_steps);
+	//printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    i_curr, j_curr, i_steps, j_steps);
 
     /*std::queue<int> BT_states;
     int i_curr=ref_pos, j_curr=query_pos;

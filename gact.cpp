@@ -211,9 +211,9 @@ void GACT (char *ref_str, char *query_str, \
 
 #ifdef BATCH
 #ifdef GPU
-void GACT_Batch(GACT_call *calls, int num_calls, bool complement, int offset, GPU_storage *s)
+void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, int offset, GPU_storage *s)
 #else
-void GACT_Batch(GACT_call *calls, int num_calls, bool complement, int offset)
+void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, int offset)
 #endif
 {
     int early_terminate = tile_size - tile_overlap;

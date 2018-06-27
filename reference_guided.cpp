@@ -167,19 +167,18 @@ void AlignReads (int start_read_num, int last_read_num)
     //    long mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
 
 #ifdef BATCH
-    GACT_call *GACT_calls_for, *GACT_calls_rev;
+    std::vector<GACT_call> GACT_calls_for, GACT_calls_rev;
 #endif
 
     int num_candidates_for, num_candidates_rev;
+    int total_calls_for = 0, total_calls_rev = 0;
 
     for (int k = start_read_num; k < last_read_num; k++) {
         int len = reads_lengths[k];
 
         // Forward reads
         num_candidates_for = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
-#ifdef BATCH
-        GACT_calls_for = new GACT_call[num_candidates_for];
-#endif
+        total_calls_for += num_candidates_for;
         io_lock.lock();
         std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
@@ -194,13 +193,16 @@ void AlignReads (int start_read_num, int last_read_num)
 
 #ifdef BATCH
             // store GACT_call
-            GACT_calls_for[i].ref_id = chr_id;
-            GACT_calls_for[i].query_id = k;
-            GACT_calls_for[i].ref_pos = ref_pos;
-            GACT_calls_for[i].query_pos = query_pos;
-            GACT_calls_for[i].score = 0;
-            GACT_calls_for[i].first = 1;
-            GACT_calls_for[i].reverse = 1;
+            GACT_call g;
+            GACT_calls_for.push_back(g);
+            int idx = GACT_calls_for.size() - 1;
+            GACT_calls_for[idx].ref_id = chr_id;
+            GACT_calls_for[idx].query_id = k;
+            GACT_calls_for[idx].ref_pos = ref_pos;
+            GACT_calls_for[idx].query_pos = query_pos;
+            GACT_calls_for[idx].score = 0;
+            GACT_calls_for[idx].first = 1;
+            GACT_calls_for[idx].reverse = 1;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
@@ -210,18 +212,16 @@ void AlignReads (int start_read_num, int last_read_num)
         }   // end for all num_candidates_for seed hits
         io_lock.unlock();
 #ifdef BATCH
-        for(int i = 0; i < num_candidates_for; ++i){
+        /*for(int i = 0; i < num_candidates_for; ++i){
         	GACT_call *c = &(GACT_calls_for[i]);
         	printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
-        }
+        }//*/
 #endif
 
 
         // Reverse complement reads
         num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
-#ifdef BATCH
-        GACT_calls_rev = new GACT_call[num_candidates_rev];
-#endif
+        total_calls_rev += num_candidates_rev;
         io_lock.lock();
         std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
@@ -235,13 +235,17 @@ void AlignReads (int start_read_num, int last_read_num)
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
 #ifdef BATCH
-            GACT_calls_rev[i].ref_id = chr_id;
-            GACT_calls_rev[i].query_id = k;
-            GACT_calls_rev[i].ref_pos = ref_pos;
-            GACT_calls_rev[i].query_pos = query_pos;
-            GACT_calls_rev[i].score = 0;
-            GACT_calls_rev[i].first = 1;
-            GACT_calls_rev[i].reverse = 1;
+            // store GACT_call
+            GACT_call g;
+            GACT_calls_rev.push_back(g);
+            int idx = GACT_calls_rev.size() - 1;
+            GACT_calls_rev[idx].ref_id = chr_id;
+            GACT_calls_rev[idx].query_id = k;
+            GACT_calls_rev[idx].ref_pos = ref_pos;
+            GACT_calls_rev[idx].query_pos = query_pos;
+            GACT_calls_rev[idx].score = 0;
+            GACT_calls_rev[idx].first = 1;
+            GACT_calls_rev[idx].reverse = 1;
 #else   // perform GACT immediately
             GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
@@ -252,19 +256,16 @@ void AlignReads (int start_read_num, int last_read_num)
         io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
-    printf("num_candidates: %d %d\n", num_candidates_for, num_candidates_rev);
+    printf("num_candidates: %d %d\n", total_calls_for, total_calls_rev);
 
 #ifdef BATCH
 #ifdef GPU
-    GACT_Batch(GACT_calls_for, num_candidates_for, false, 0, s);
-    GACT_Batch(GACT_calls_rev, num_candidates_rev, true, num_candidates_for, s);
+    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, s);
+    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, s);
 #else
-    GACT_Batch(GACT_calls_for, num_candidates_for, false, 0);
-    GACT_Batch(GACT_calls_rev, num_candidates_rev, true, num_candidates_for);
+    GACT_Batch(GACT_calls_for, total_calls_for, false, 0);
+    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for);
 #endif
-
-    delete[] GACT_calls_for;
-    delete[] GACT_calls_rev;
 #endif
 
     delete[] bin_count_offset_array;

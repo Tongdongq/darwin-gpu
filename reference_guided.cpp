@@ -22,10 +22,6 @@
     #error "These files should be compiled using the z_compile.sh script"
 #endif
 
-#ifdef GPU
-    #define BATCH 1
-#endif
-
 #define PRINT_SEED_POS_CONSTRUCT TRUE
 
 //enum states {Z, D, I, M};

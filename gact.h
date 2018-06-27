@@ -2,6 +2,10 @@
 #ifndef GACT_H
 #define GACT_H
 
+#ifdef GPU
+    #define BATCH 1
+#endif
+
 // actually declared in reference_guided.cpp, but gact.cpp also needs them
 #ifdef BATCH
     extern int NUM_BLOCKS;

@@ -18,11 +18,13 @@ std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, std
     bool reverse = (reverses[j] == 1);
     bool first = (firsts[j] == 1);
 
-    if(ref_pos == -1){
+    std::queue<int> BT_states;
+
+    if(ref_len == -1){
+      // push empty queue, otherwise GACT_Batch will misinterpret BT_statess
+      result.push_back(BT_states);
       continue;
     }
-
-    std::queue<int> BT_states;
 
     BT_states = AlignWithBT(ref_seq, ref_len, query_seq, query_len, \
       sub_mat, gap_open, gap_extend, query_pos, ref_pos, reverse, first, early_terminate);

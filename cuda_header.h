@@ -73,7 +73,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     const int row_len = _tile_size + 1;
     int *out = outs_d + tid * 2 * _tile_size;
 
-    if(tid >= _BATCH_SIZE){
+    if(ref_len == -1){
         return;
     }
 
@@ -133,10 +133,9 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     }
 
 
-    int max_score = 0; 
-    int pos_score = 0; 
-    int max_i = 0; 
-    int max_j = 0; 
+    int max_score = 0;
+    int max_i = 0;
+    int max_j = 0;
 
     for (int i = 1; i < ref_len + 1; i++) {
         for (int k = 1; k < _tile_size + 1; k++) {

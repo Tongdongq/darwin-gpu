@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
     GPU_storage s;
     int match_score = 1;
     int mismatch_score = -1;
-    GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s);
+    GPU_init(tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s);
 #endif
 
     // RUN D-SOFT TO MAP READS

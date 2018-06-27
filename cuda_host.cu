@@ -124,11 +124,10 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
 }
 
 
-void GPU_init(int BATCH_SIZE, int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, GPU_storage *s)
+void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, GPU_storage *s)
 {
   cudaSafeCall(cudaSetDevice(0));         // select Tesla K40c on CE-cuda server
 
-  cudaSafeCall(cudaMemcpyToSymbol(_BATCH_SIZE, &BATCH_SIZE, sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_tile_size, &(tile_size), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_tile_overlap, &(tile_overlap), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_gap_open, &(gap_open), sizeof(int), 0, cudaMemcpyHostToDevice));

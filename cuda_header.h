@@ -7,7 +7,6 @@
 
 
 #ifndef NOCUDA
-__constant__ int _BATCH_SIZE;
 __constant__ int _tile_size;
 __constant__ int _tile_overlap;
 __constant__ int _gap_open;

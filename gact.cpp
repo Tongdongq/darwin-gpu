@@ -21,6 +21,9 @@ int sub_mat[25] = {
     0, 0, 0, 0, 0
 };
 
+int match_score = 1;
+int mismatch_score = -1;
+
 // declared in cuda_header.h
 extern int gap_open;
 extern int gap_extend;
@@ -194,7 +197,7 @@ void GACT (char *ref_str, char *query_str, \
             open = false;
         }
         else {
-            total_score += sub_mat[5*NtChar2Int(query_nt) + NtChar2Int(ref_nt)];
+            total_score += (query_nt == ref_nt) ? match_score : mismatch_score;
             open = true;
         }
     }
@@ -230,8 +233,6 @@ void GACT_Batch(GACT_call *calls, int num_calls, bool complement){
     std::vector<int> first_tile_scores(num_calls);
 
     int next_callidx = BATCH_SIZE;
-    int match = 1;
-    int mismatch = -1;
     int calls_done = 0;
 
     std::vector<int> assignments(BATCH_SIZE);
@@ -267,7 +268,7 @@ void GACT_Batch(GACT_call *calls, int num_calls, bool complement){
 
 #ifdef GPU
     GPU_storage s;
-    GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match, mismatch, early_terminate, &s);
+    GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, early_terminate, &s);
 #endif
 int batch_no = 0;
     while(calls_done < num_calls){
@@ -348,7 +349,7 @@ int batch_no = 0;
 #endif
 
 #ifdef GPU
-        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, &s, num_blocks, threads_per_block);
+        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, &s, NUM_BLOCKS, THREADS_PER_BLOCK);
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
         BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);

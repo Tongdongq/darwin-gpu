@@ -2,8 +2,12 @@
 #CFLAGS = -O4 -g
 CFLAGS = -O4
 
+# linker flags, -pg enables use of gprof
 #LFLAGS = -pg
 LFLAGS =
+
+#NCFLAGS = -O0 -G -Xptxas -v
+NCFLAGS = -O3 -Xptxas -v
 
 CFLAGS += $(options)
 
@@ -28,7 +32,8 @@ config_file.o: ConfigFile.cpp
 	g++ -std=c++11 $(CFLAGS) -Wno-multichar -o config_file.o -c ConfigFile.cpp
 
 reference_guided: ntcoding.o fasta.o seed_pos_table.o chameleon.o config_file.o reference_guided.o
-	g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o gact.cpp align.cpp -o reference_guided -pthread 
+	#g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o cuda_host.cu gact.cpp align.cpp -o reference_guided -pthread 
+	nvcc -std=c++11 $(NCFLAGS) $(LFLAGS) $(options) -arch=compute_35 -code=sm_35 -Xcompiler="-pthread -Wno-multichar" -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.cpp cuda_host.cu gact.cpp align.cpp -o reference_guided
 
 clean:
 	rm -rf *.o reference_guided 

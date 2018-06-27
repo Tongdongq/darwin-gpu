@@ -256,11 +256,12 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, in
         }
     }
 
+    // terminate: 0: continue, 1: stop due to low number of tb steps, 2: stop due to low first tile score
+    std::vector<char> terminate(BATCH_SIZE);
     std::vector<std::string> ref_seqs(BATCH_SIZE);
     std::vector<std::string> query_seqs(BATCH_SIZE);
     std::vector<int> ref_lens(BATCH_SIZE);
     std::vector<int> query_lens(BATCH_SIZE);
-    std::vector<char> terminate(BATCH_SIZE);
     std::vector<char> reverses(BATCH_SIZE);
     std::vector<char> firsts_b(BATCH_SIZE);
 
@@ -274,6 +275,7 @@ int batch_no = 0;
     while(calls_done < num_calls){
 //printf("batch_no: %d\n", batch_no++);
         for(int t = 0; t < BATCH_SIZE; ++t){
+            char next_call = 0;
             int callidx = assignments[t];
             GACT_call *c = &(calls[callidx]);
 
@@ -290,16 +292,20 @@ int batch_no = 0;
             // prepare assignments
             if(c->reverse == 1){
                 if(ref_pos <= 0 || query_pos <= 0 || terminate[t]){
-                    //printf("T%d reverse dir done\n", t);
-                    // store begin of alignment in ref_bpos and query_bpos
-                    int t1 = c->ref_bpos;
-                    int t2 = c->query_bpos;
-                    c->ref_bpos = ref_pos;
-                    c->query_bpos = query_pos;
-                    ref_pos = t1;
-                    query_pos = t2;
-                    c->reverse = 0;
-                    terminate[t] = 0;
+                    if(terminate[t] == 2){
+                        next_call = 1;
+                    }else{
+                        //printf("T%d reverse dir done\n", t);
+                        // store begin of alignment in ref_bpos and query_bpos
+                        int t1 = c->ref_bpos;
+                        int t2 = c->query_bpos;
+                        c->ref_bpos = ref_pos;
+                        c->query_bpos = query_pos;
+                        ref_pos = t1;
+                        query_pos = t2;
+                        c->reverse = 0;
+                        terminate[t] = 0;
+                    }
                 }
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
@@ -312,14 +318,18 @@ int batch_no = 0;
                         //printf("T%d idle\n", t);
                         continue;
                     }
-                    callidx = next_callidx++;
-                    c = &(calls[callidx]);
-                    ref_pos = c->ref_pos;
-                    query_pos = c->query_pos;
-                    ref_length = reference_lengths[c->ref_id];
-                    query_length = reads_lengths[c->query_id];
-                    terminate[t] = 0;
+                    next_call = 1;
                 }
+            }
+
+            if(next_call == 1){                
+                callidx = next_callidx++;
+                c = &(calls[callidx]);
+                ref_pos = c->ref_pos;
+                query_pos = c->query_pos;
+                ref_length = reference_lengths[c->ref_id];
+                query_length = reads_lengths[c->query_id];
+                terminate[t] = 0;
             }
 
             // prepare batch
@@ -393,7 +403,7 @@ int batch_no = 0;
                     c->query_bpos = query_pos;
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
-                        break;
+                        terminate[t] = 2;
                     }
                 }
                 while (!BT_states.empty()) {
@@ -428,7 +438,7 @@ int batch_no = 0;
                     BT_states.pop();
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
-                        break;
+                        terminate[t] = 2;
                     }
                 }
                 while (!BT_states.empty()) {

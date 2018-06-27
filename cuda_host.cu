@@ -6,7 +6,7 @@
 #ifdef GPU
 
 #include "cuda_header.h"
-
+#include "gact.h"
 
 std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, std::vector<int> ref_lens, std::vector<int> query_lens, int *sub_mat, int gap_open, int gap_extend, std::vector<int> ref_poss, std::vector<int> query_poss, std::vector<char> reverses, std::vector<char> firsts, int early_terminate, int tile_size, GPU_storage *s, int num_blocks, int threads_per_block){
 

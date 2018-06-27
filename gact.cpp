@@ -210,8 +210,12 @@ void GACT (char *ref_str, char *query_str, \
 } // end GACT()
 
 #ifdef BATCH
-void GACT_Batch(GACT_call *calls, int num_calls, bool complement){
-
+#ifdef GPU
+void GACT_Batch(GACT_call *calls, int num_calls, bool complement, int offset, GPU_storage *s)
+#else
+void GACT_Batch(GACT_call *calls, int num_calls, bool complement, int offset)
+#endif
+{
     int early_terminate = tile_size - tile_overlap;
 
     std::vector<std::queue<int> > BT_statess(BATCH_SIZE);
@@ -266,10 +270,6 @@ void GACT_Batch(GACT_call *calls, int num_calls, bool complement){
     t1 = std::chrono::high_resolution_clock::now();
 #endif
 
-#ifdef GPU
-    GPU_storage s;
-    GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, early_terminate, &s);
-#endif
 int batch_no = 0;
     while(calls_done < num_calls){
 //printf("batch_no: %d\n", batch_no++);
@@ -349,7 +349,7 @@ int batch_no = 0;
 #endif
 
 #ifdef GPU
-        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, &s, NUM_BLOCKS, THREADS_PER_BLOCK);
+        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
         BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);

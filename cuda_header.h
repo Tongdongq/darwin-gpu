@@ -4,19 +4,6 @@
 #ifndef CUDA_HEADER
 #define CUDA_HEADER
 
-typedef struct {
-  const char *ref_seqs_d;
-  const char *query_seqs_d;
-  const int *ref_lens_d;
-  const int *query_lens_d;
-  const int *ref_poss_d;
-  const int *query_poss_d;
-  const char *reverses_d;
-  const char *firsts_d;
-  int *outs_d;
-  int *matricess_d;
-} GPU_storage;
-
 
 
 #ifndef NOCUDA

@@ -2,9 +2,6 @@
 #include <queue>
 #include "ntcoding.h"
 
-#define NOCUDA
-#include "cuda_header.h"
-#undef NOCUDA
 
 #define INF (1 << 30)
 #define MAX_TILE_SIZE 2049
@@ -19,10 +16,6 @@ enum AlnOperands {ZERO_OP, DELETE_OP, INSERT_OP, MATCH_OP};
 enum states {Z, D, I, M};
 
 
-#ifdef GPU
-void GPU_init(int BATCH_SIZE, int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, GPU_storage *s);
-std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, std::vector<int> ref_lens, std::vector<int> query_lens, int *sub_mat, int gap_open, int gap_extend, std::vector<int> ref_poss, std::vector<int> query_poss, std::vector<char> reverses, std::vector<char> firsts, int early_terminate, int tile_size, GPU_storage *s, int num_blocks, int threads_per_block);
-#endif
 
 using namespace std;
 

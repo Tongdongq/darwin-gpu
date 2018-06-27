@@ -137,8 +137,12 @@ void PrintTileLocation (std::string read_name, \
 
 // each CPU thread aligns a batch of multiple reads against the SeedTable
 // the params start_read_num and last_read_num indicate which readIDs are to be aligned for each CPU thread
-void AlignReads (int start_read_num, int last_read_num) {
-
+#ifdef GPU
+void AlignReads (int start_read_num, int last_read_num, GPU_storage *s)
+#else
+void AlignReads (int start_read_num, int last_read_num)
+#endif
+{
     uint32_t log_bin_size = (uint32_t) (log2(bin_size));
     int num_bins = 1 + (reference_length >> log_bin_size);
 
@@ -251,9 +255,13 @@ void AlignReads (int start_read_num, int last_read_num) {
     printf("num_candidates: %d %d\n", num_candidates_for, num_candidates_rev);
 
 #ifdef BATCH
-
-    GACT_Batch(GACT_calls_for, num_candidates_for, false);
-    GACT_Batch(GACT_calls_rev, num_candidates_rev, true);
+#ifdef GPU
+    GACT_Batch(GACT_calls_for, num_candidates_for, false, 0, s);
+    GACT_Batch(GACT_calls_rev, num_candidates_rev, true, num_candidates_for, s);
+#else
+    GACT_Batch(GACT_calls_for, num_candidates_for, false, 0);
+    GACT_Batch(GACT_calls_rev, num_candidates_rev, true, num_candidates_for);
+#endif
 
     delete[] GACT_calls_for;
     delete[] GACT_calls_rev;
@@ -420,6 +428,14 @@ int main(int argc, char *argv[]) {
     uint64_t total_num_seeds = 0;
     char nt;
 
+    // GPU init
+#ifdef GPU
+    GPU_storage s;
+    int match_score = 1;
+    int mismatch_score = -1;
+    GPU_init(BATCH_SIZE, tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s);
+#endif
+
     // RUN D-SOFT TO MAP READS
     gettimeofday(&start, NULL);
 
@@ -429,7 +445,11 @@ int main(int argc, char *argv[]) {
     int reads_per_thread = ceil(1.0*num_reads/num_threads);
     for (int k = 0; k < num_reads; k+=reads_per_thread) {
         int last_read = (k+reads_per_thread > num_reads) ? num_reads : k+reads_per_thread;
+#ifdef GPU
+        align_threads.push_back(std::thread(AlignReads, k, last_read, &s));
+#else
         align_threads.push_back(std::thread(AlignReads, k, last_read));
+#endif
     }
     std::cout << align_threads.size() << " threads created\n";
     std::cout << "Synchronizing all threads...\n";

@@ -85,6 +85,7 @@ void GACT (char *ref_str, char *query_str, \
         j = 0;
         int tile_score = BT_states.front();
         BT_states.pop();
+
         if (first_tile) {
             ref_pos = ref_pos - ref_tile_length + BT_states.front();
             BT_states.pop();
@@ -120,7 +121,7 @@ void GACT (char *ref_str, char *query_str, \
         }
         ref_pos -= (j);
         query_pos -= (i);
-        //printf("after tb: callidx: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d\n", callidx, ref_pos, query_pos, i, j);
+        //printf("after tb: callidx: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d, rev: 1\n", callidx, ref_pos, query_pos, i, j);
     }
 
     abpos = ref_pos;
@@ -150,6 +151,7 @@ void GACT (char *ref_str, char *query_str, \
         j = 0;
         int tile_score = BT_states.front();
         BT_states.pop();
+
         if (first_tile) {
             ref_pos = ref_pos + ref_tile_length - BT_states.front();
             BT_states.pop();
@@ -184,7 +186,7 @@ void GACT (char *ref_str, char *query_str, \
     
         ref_pos += (j);
         query_pos += (i);
-        //printf("end of while iteration, ref_pos: %d, query_pos: %d, j: %d, i: %d\n", ref_pos, query_pos, j, i);
+        //printf("after tb: callidx: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d, rev: 0\n", callidx, ref_pos, query_pos, i, j);
     }
 
     int total_score = 0;
@@ -237,6 +239,7 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, in
     std::vector<int> first_tile_scores(num_calls);
 
     int next_callidx = BATCH_SIZE;
+    //int next_callidx = 5000;
     int calls_done = 0;
 
     std::vector<int> assignments(BATCH_SIZE);
@@ -297,6 +300,7 @@ int batch_no = 0;
                     }else{
                         //printf("T%d reverse dir done\n", t);
                         // store begin of alignment in ref_bpos and query_bpos
+                        //printf("T%d reverse done, ref_pos: %d, query_pos: %d\n", t, ref_pos, query_pos);
                         int t1 = c->ref_bpos;
                         int t2 = c->query_bpos;
                         c->ref_bpos = ref_pos;
@@ -411,7 +415,6 @@ int batch_no = 0;
                         terminate[t] = 1;
                         c->ref_pos = ref_pos;
                         c->query_pos = query_pos;
-                        printf("T%d callidx %d, score too low, ref_pos: %d, query_pos: %d\n", t, callidx+offset, ref_pos, query_pos);
                         continue;
                     }
                 }

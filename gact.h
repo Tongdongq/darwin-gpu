@@ -24,7 +24,7 @@ typedef struct {
     int query_id;   // id of query read
     int ref_pos;    // start of next tile
     int query_pos;
-    int ref_bpos;   // indicates where forward dir should start (during reverse), indicates begin of alignment (during forward)
+    int ref_bpos;   // indicates where forward dir should start (during reverse), indicates where reverse dir ended (during forward)
     int query_bpos;
     int score;      // current score for current GACT_call
     int first_tile_score;     // score of first tile

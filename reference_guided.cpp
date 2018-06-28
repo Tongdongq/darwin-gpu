@@ -211,12 +211,6 @@ void AlignReads (int start_read_num, int last_read_num)
 #endif
         }   // end for all num_candidates_for seed hits
         io_lock.unlock();
-#ifdef BATCH
-        /*for(int i = 0; i < num_candidates_for; ++i){
-        	GACT_call *c = &(GACT_calls_for[i]);
-        	printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
-        }//*/
-#endif
 
 
         // Reverse complement reads
@@ -259,6 +253,10 @@ void AlignReads (int start_read_num, int last_read_num)
     printf("num_candidates: %d %d\n", total_calls_for, total_calls_rev);
 
 #ifdef BATCH
+        for(int i = 0; i < total_calls_for; ++i){
+            GACT_call *c = &(GACT_calls_for[i]);
+            printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
+        }//*/
 #ifdef GPU
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, s);
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, s);

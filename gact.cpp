@@ -303,20 +303,24 @@ int batch_no = 0;
                         c->query_bpos = query_pos;
                         ref_pos = t1;
                         query_pos = t2;
+                        c->ref_pos = t1;
+                        c->query_pos = t2;
                         c->reverse = 0;
                         terminate[t] = 0;
                     }
                 }
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
-                    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx+offset, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
-                    calls_done++;
-                    assignments[t] = next_callidx;
-                    if(next_callidx >= num_calls){
-                        assignments[t] = -1;
-                        ref_lens[t] = -1;
-                        //printf("T%d idle\n", t);
-                        continue;
+                    if(terminate[t] != 2){
+                        printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx+offset, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                        calls_done++;
+                        assignments[t] = next_callidx;
+                        if(next_callidx >= num_calls){
+                            assignments[t] = -1;
+                            ref_lens[t] = -1;
+                            //printf("T%d idle\n", t);
+                            continue;
+                        }
                     }
                     next_call = 1;
                 }
@@ -403,7 +407,12 @@ int batch_no = 0;
                     c->query_bpos = query_pos;
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
-                        terminate[t] = 2;
+                        //terminate[t] = 2;
+                        terminate[t] = 1;
+                        c->ref_pos = ref_pos;
+                        c->query_pos = query_pos;
+                        printf("T%d callidx %d, score too low, ref_pos: %d, query_pos: %d\n", t, callidx+offset, ref_pos, query_pos);
+                        continue;
                     }
                 }
                 while (!BT_states.empty()) {
@@ -438,7 +447,11 @@ int batch_no = 0;
                     BT_states.pop();
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
-                        terminate[t] = 2;
+                        //terminate[t] = 2;
+                        terminate[t] = 1;
+                        c->ref_pos = ref_pos;
+                        c->query_pos = query_pos;
+                        continue;
                     }
                 }
                 while (!BT_states.empty()) {

@@ -71,6 +71,7 @@ void ParseFastaFile(std::string filename,
             // Check sequence lines are wrapped to MAX_SEQLINE_LEN characters
             if ((line.length() > SEQLINE_WRAP_LEN) || (line.length() < SEQLINE_WRAP_LEN && last_length != SEQLINE_WRAP_LEN)) {
                 std::cerr << "Error in file " << filename << ": FASTA sequence lines need to be wrapped to " << SEQLINE_WRAP_LEN << " characters!" << std::endl;
+                std::cerr << "Keep in mind that sacCer3.fa has a wraplength of 50, and generate.sh generates fasta files with wraplength of 70" << std::endl;
                 return;
             }
 

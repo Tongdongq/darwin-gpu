@@ -252,10 +252,11 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, in
     std::vector<int> query_tile_lengths(BATCH_SIZE);
     if(num_calls < BATCH_SIZE){
         printf("WARNING not enough callidxs for BATCH\n");
-        for(int i = 0; i < num_calls; ++i){
+        int i = 0;
+        for(; i < num_calls; ++i){
             assignments[i] = i;
         }
-        for(int i; i < BATCH_SIZE; ++i){
+        for(; i < BATCH_SIZE; ++i){
             assignments[i] = -1;
         }
     }else{

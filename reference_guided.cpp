@@ -86,7 +86,7 @@ std::map<uint32_t, int> bin_to_chr_id;
 
 SeedPosTable *sa;
 
-std::mutex io_lock;
+//std::mutex io_lock;
 
 std::map<char, char> rcmap;
 
@@ -152,7 +152,7 @@ void AlignReads (int start_read_num, int last_read_num)
 
     struct timeval begin, finish;
 
-    //    gettimeofday(&begin, NULL);
+    gettimeofday(&begin, NULL);
     uint32_t* nz_bins_array = new uint32_t[num_nz_bins];
     uint64_t* bin_count_offset_array = new uint64_t[num_bins];
     candidate_hit_offset = new uint64_t[max_candidates];
@@ -161,10 +161,6 @@ void AlignReads (int start_read_num, int last_read_num)
         bin_count_offset_array[i] = 0;
     }
 
-    //    gettimeofday(&finish, NULL);
-    //    long useconds = finish.tv_usec - begin.tv_usec;
-    //    long seconds = finish.tv_sec - begin.tv_sec;
-    //    long mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
 
 #ifdef BATCH
     std::vector<GACT_call> GACT_calls_for, GACT_calls_rev;
@@ -179,8 +175,8 @@ void AlignReads (int start_read_num, int last_read_num)
         // Forward reads
         num_candidates_for = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
         total_calls_for += num_candidates_for;
-        io_lock.lock();
-        std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
+        //io_lock.lock();
+        //std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
@@ -207,17 +203,18 @@ void AlignReads (int start_read_num, int last_read_num)
             GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
-                ref_pos, query_pos, first_tile_score_threshold);
+                ref_pos, query_pos, first_tile_score_threshold, \
+                chr_id, k);//*/
 #endif
         }   // end for all num_candidates_for seed hits
-        io_lock.unlock();
+        //io_lock.unlock();
 
 
         // Reverse complement reads
         num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
         total_calls_rev += num_candidates_rev;
-        io_lock.lock();
-        std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
+        //io_lock.lock();
+        //std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
             PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
@@ -244,19 +241,29 @@ void AlignReads (int start_read_num, int last_read_num)
             GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
-                ref_pos, query_pos, first_tile_score_threshold);
+                ref_pos, query_pos, first_tile_score_threshold, \
+                chr_id, k);//*/
 #endif
         }   // end for all num_candidates_rev seed hits
-        io_lock.unlock();
+        //io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
     printf("num_candidates: %d %d\n", total_calls_for, total_calls_rev);
 
-#ifdef BATCH
-        for(int i = 0; i < total_calls_for; ++i){
-            GACT_call *c = &(GACT_calls_for[i]);
-            printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
-        }//*/
+#ifdef BATCH    
+    gettimeofday(&finish, NULL);
+    long useconds = finish.tv_usec - begin.tv_usec;
+    long seconds = finish.tv_sec - begin.tv_sec;
+    long mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    std::cout << "Time finding seeds: " << mseconds <<" msec" << std::endl;
+
+    /*for(int i = 0; i < total_calls_for; ++i){
+        GACT_call *c = &(GACT_calls_for[i]);
+        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
+    }//*/
+
+    gettimeofday(&begin, NULL);
+
 #ifdef GPU
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, s);
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, s);
@@ -264,6 +271,14 @@ void AlignReads (int start_read_num, int last_read_num)
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0);
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for);
 #endif
+
+    gettimeofday(&finish, NULL);
+
+    useconds = finish.tv_usec - begin.tv_usec;
+    seconds = finish.tv_sec - begin.tv_sec;
+    mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    std::cout << "Time GACT calling: " << mseconds <<" msec" << std::endl;
+
 #endif
 
     delete[] bin_count_offset_array;
@@ -459,7 +474,7 @@ int main(int argc, char *argv[]) {
     useconds = end_time.tv_usec - start.tv_usec;
     seconds = end_time.tv_sec - start.tv_sec;
     mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
-    std::cout << "Time elapsed (seed table querying): " << mseconds <<" msec" << std::endl;
+    std::cout << "Time elapsed (seed table querying + aligning): " << mseconds <<" msec" << std::endl;
 
     return 0;
 }

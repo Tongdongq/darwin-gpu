@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <cstdlib>
 #include <queue>
+#include <mutex>
 #include "align.h"
 #include "gact.h"
 
@@ -35,10 +36,12 @@ extern std::vector<std::string> reads_seqs;
 extern std::vector<std::string> rev_reads_seqs;
 extern std::vector<long long int> reads_lengths;
 
+std::mutex io_lock;
+
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \
     int tile_size, int tile_overlap, \
-    int ref_pos, int query_pos, int first_tile_score_threshold) {
+    int ref_pos, int query_pos, int first_tile_score_threshold, int ref_id, int query_id) {
 
     std::queue<int> BT_states;
 
@@ -64,7 +67,7 @@ void GACT (char *ref_str, char *query_str, \
     int first_tile_score = 0;
     bool first_tile = true;
    
-    printf("GACT: ref_pos: %d, query_pos: %d, ref_length: %d, query_length: %d\n", ref_pos, query_pos, ref_length, query_length);
+    //printf("GACT: ref_pos: %d, query_pos: %d, ref_length: %d, query_length: %d\n", ref_pos, query_pos, ref_length, query_length);
 
 
     // not for the first tile
@@ -203,8 +206,10 @@ void GACT (char *ref_str, char *query_str, \
             open = true;
         }
     }
-
-    printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
+io_lock.lock();
+    //printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
+    printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
+io_lock.unlock();
     callidx++;
 
     //std::cout << aligned_ref_str << std::endl << aligned_query_str << std::endl;
@@ -316,7 +321,9 @@ int batch_no = 0;
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
-                        printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d\n", callidx+offset, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+io_lock.lock();
+                        printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+io_lock.unlock();
                         calls_done++;
                         assignments[t] = next_callidx;
                         if(next_callidx >= num_calls){

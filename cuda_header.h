@@ -60,6 +60,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     int *out = outs_d + tid * 2 * _tile_size;
 
     if(ref_len == -1){
+        out[0] = 0;
         return;
     }
 

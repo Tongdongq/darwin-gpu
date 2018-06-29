@@ -124,7 +124,8 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
 }
 
 
-void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, GPU_storage *s)
+//void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, GPU_storage *s, int num_threads)
+void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int match, int mismatch, int early_terminate, std::vector<GPU_storage> *s, int num_threads)
 {
   cudaSafeCall(cudaSetDevice(0));         // select Tesla K40c on CE-cuda server
 
@@ -136,16 +137,19 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaMemcpyToSymbol(_mismatch, &(mismatch), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
-  cudaSafeCall(cudaMalloc((void**)&(s->ref_seqs_d), BATCH_SIZE*tile_size));
-  cudaSafeCall(cudaMalloc((void**)&(s->query_seqs_d), BATCH_SIZE*tile_size));
-  cudaSafeCall(cudaMalloc((void**)&(s->ref_lens_d), BATCH_SIZE*sizeof(int)));
-  cudaSafeCall(cudaMalloc((void**)&(s->query_lens_d), BATCH_SIZE*sizeof(int)));
-  cudaSafeCall(cudaMalloc((void**)&(s->ref_poss_d), BATCH_SIZE*sizeof(int)));
-  cudaSafeCall(cudaMalloc((void**)&(s->query_poss_d), BATCH_SIZE*sizeof(int)));
-  cudaSafeCall(cudaMalloc((void**)&(s->reverses_d), BATCH_SIZE));
-  cudaSafeCall(cudaMalloc((void**)&(s->firsts_d), BATCH_SIZE));
-  cudaSafeCall(cudaMalloc((void**)&(s->outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-  cudaSafeCall(cudaMalloc((void**)&(s->matricess_d), BATCH_SIZE*sizeof(int)*(tile_size+1)*(tile_size+9)));
+  for(int i = 0; i < num_threads; ++i){
+    s->push_back(GPU_storage());
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_lens_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_lens_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_poss_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_poss_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].matricess_d), BATCH_SIZE*sizeof(int)*(tile_size+1)*(tile_size+9)));
+  }
 
   // set print buffer size (debug only)
   printf("NOTE: print buffer size is made larger\n");

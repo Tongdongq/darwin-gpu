@@ -235,7 +235,7 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, in
         reads_seqs_p = &reads_seqs;
     }
 
-    printf("GACT_Batch, num_calls: %d\n", num_calls);
+    printf("GACT_Batch, num_calls: %d, calls: %p\n", num_calls, &calls);
 
     //output of the function
     std::vector<std::string> aligned_ref_strs(num_calls);
@@ -496,6 +496,7 @@ io_lock.unlock();
             if(i == 0 || j == 0){
                 terminate[t] = 1;
             }
+            
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
             //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);

@@ -138,7 +138,7 @@ void PrintTileLocation (std::string read_name, \
 // each CPU thread aligns a batch of multiple reads against the SeedTable
 // the params start_read_num and last_read_num indicate which readIDs are to be aligned for each CPU thread
 #ifdef GPU
-void AlignReads (int start_read_num, int last_read_num, GPU_storage *s)
+void AlignReads (int start_read_num, int last_read_num, GPU_storage s)
 #else
 void AlignReads (int start_read_num, int last_read_num)
 #endif
@@ -178,7 +178,7 @@ void AlignReads (int start_read_num, int last_read_num)
         //io_lock.lock();
         //std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
-            PrintTileLocation(reads_descrips[k][0], \
+            //PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -216,7 +216,7 @@ void AlignReads (int start_read_num, int last_read_num)
         //io_lock.lock();
         //std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
-            PrintTileLocation(reads_descrips[k][0], \
+            //PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '-');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -250,7 +250,7 @@ void AlignReads (int start_read_num, int last_read_num)
 
     printf("num_candidates: %d %d\n", total_calls_for, total_calls_rev);
 
-#ifdef BATCH    
+#ifdef BATCH
     gettimeofday(&finish, NULL);
     long useconds = finish.tv_usec - begin.tv_usec;
     long seconds = finish.tv_sec - begin.tv_sec;
@@ -265,8 +265,8 @@ void AlignReads (int start_read_num, int last_read_num)
     gettimeofday(&begin, NULL);
 
 #ifdef GPU
-    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, s);
-    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, s);
+    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s);
+    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s);
 #else
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0);
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for);
@@ -444,10 +444,10 @@ int main(int argc, char *argv[]) {
 
     // GPU init
 #ifdef GPU
-    GPU_storage s;
+    std::vector<GPU_storage> s;
     int match_score = 1;
     int mismatch_score = -1;
-    GPU_init(tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s);
+    GPU_init(tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s, num_threads);
 #endif
 
     // RUN D-SOFT TO MAP READS
@@ -457,10 +457,11 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::thread> align_threads;
     int reads_per_thread = ceil(1.0*num_reads/num_threads);
-    for (int k = 0; k < num_reads; k+=reads_per_thread) {
+    int i = 0;
+    for (int k = 0; k < num_reads; k+=reads_per_thread, i++) {
         int last_read = (k+reads_per_thread > num_reads) ? num_reads : k+reads_per_thread;
 #ifdef GPU
-        align_threads.push_back(std::thread(AlignReads, k, last_read, &s));
+        align_threads.push_back(std::thread(AlignReads, k, last_read, s[i]));
 #else
         align_threads.push_back(std::thread(AlignReads, k, last_read));
 #endif

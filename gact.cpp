@@ -208,7 +208,8 @@ void GACT (char *ref_str, char *query_str, \
     }
 io_lock.lock();
     //printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
-    printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
+    //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
+    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos);
 io_lock.unlock();
     callidx++;
 
@@ -322,8 +323,23 @@ int batch_no = 0;
             }else{
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
+                        int total_score = 0;
+                        bool open = true;
+                        for (uint32_t j = 0; j < aligned_ref_strs[callidx].length(); j++) {
+                            char ref_nt = aligned_ref_strs[callidx][j];
+                            char query_nt = aligned_query_strs[callidx][j];
+                            if (ref_nt == '-' || query_nt == '-') {
+                                total_score += (open) ? gap_open : gap_extend;
+                                open = false;
+                            }
+                            else {
+                                total_score += (query_nt == ref_nt) ? match_score : mismatch_score;
+                                open = true;
+                            }
+                        }
 io_lock.lock();
-                        printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                        //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                        printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score);
 io_lock.unlock();
                         calls_done++;
                         assignments[t] = next_callidx;
@@ -496,7 +512,7 @@ io_lock.unlock();
             if(i == 0 || j == 0){
                 terminate[t] = 1;
             }
-            
+
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
             //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);

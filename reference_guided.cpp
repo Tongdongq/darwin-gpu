@@ -380,7 +380,7 @@ int main(int argc, char *argv[]) {
             reference_string += std::string((bin_size - (reference_seqs[i].length() % bin_size)), 'N');
             bin_to_chr_id[curr_bin++] = i;
         }
-        std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
+        //std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
     }
 
     reference_length = reference_string.length();

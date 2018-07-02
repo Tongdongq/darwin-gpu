@@ -196,6 +196,8 @@ void AlignReads (int start_read_num, int last_read_num)
             GACT_calls_for[idx].query_id = k;
             GACT_calls_for[idx].ref_pos = ref_pos;
             GACT_calls_for[idx].query_pos = query_pos;
+            GACT_calls_rev[idx].ref_bpos = ref_pos;
+            GACT_calls_rev[idx].query_bpos = query_pos;
             GACT_calls_for[idx].score = 0;
             GACT_calls_for[idx].first = 1;
             GACT_calls_for[idx].reverse = 1;
@@ -234,6 +236,8 @@ void AlignReads (int start_read_num, int last_read_num)
             GACT_calls_rev[idx].query_id = k;
             GACT_calls_rev[idx].ref_pos = ref_pos;
             GACT_calls_rev[idx].query_pos = query_pos;
+            GACT_calls_rev[idx].ref_bpos = ref_pos;
+            GACT_calls_rev[idx].query_bpos = query_pos;
             GACT_calls_rev[idx].score = 0;
             GACT_calls_rev[idx].first = 1;
             GACT_calls_rev[idx].reverse = 1;

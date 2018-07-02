@@ -209,7 +209,8 @@ void GACT (char *ref_str, char *query_str, \
 io_lock.lock();
     //printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
     //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
-    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos);
+    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
+    //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos);
 io_lock.unlock();
     callidx++;
 
@@ -307,7 +308,6 @@ int batch_no = 0;
                     }else{
                         //printf("T%d reverse dir done\n", t);
                         // store begin of alignment in ref_bpos and query_bpos
-                        //printf("T%d reverse done, ref_pos: %d, query_pos: %d\n", t, ref_pos, query_pos);
                         int t1 = c->ref_bpos;
                         int t2 = c->query_bpos;
                         c->ref_bpos = ref_pos;
@@ -318,6 +318,7 @@ int batch_no = 0;
                         c->query_pos = t2;
                         c->reverse = 0;
                         terminate[t] = 0;
+                        //printf("T%d reverse done, ref_pos: %d, query_pos: %d, ref_bpos: %d, query_bpos: %d\n", t, ref_pos, query_pos, c->ref_bpos, c->query_bpos);
                     }
                 }
             }else{
@@ -340,6 +341,7 @@ int batch_no = 0;
 io_lock.lock();
                         //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
                         printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score);
+                        //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
 io_lock.unlock();
                         calls_done++;
                         assignments[t] = next_callidx;
@@ -362,6 +364,11 @@ io_lock.unlock();
                 ref_length = reference_lengths[c->ref_id];
                 query_length = reads_lengths[c->query_id];
                 terminate[t] = 0;
+                if(ref_pos <= 0 || query_pos <= 0){
+                    c->reverse = 0;
+                    c->ref_bpos = ref_pos;
+                    c->query_bpos = query_pos;
+                }
             }
 
             // prepare batch
@@ -515,6 +522,7 @@ io_lock.unlock();
 
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
+
             //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 

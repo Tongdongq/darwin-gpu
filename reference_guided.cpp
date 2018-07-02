@@ -204,7 +204,7 @@ void AlignReads (int start_read_num, int last_read_num)
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
-                chr_id, k);//*/
+                chr_id, k, false);//*/
 #endif
         }   // end for all num_candidates_for seed hits
         //io_lock.unlock();
@@ -242,7 +242,7 @@ void AlignReads (int start_read_num, int last_read_num)
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
-                chr_id, k);//*/
+                chr_id, k, true);//*/
 #endif
         }   // end for all num_candidates_rev seed hits
         //io_lock.unlock();

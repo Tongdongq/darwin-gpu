@@ -486,6 +486,10 @@ int main(int argc, char *argv[]) {
     mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
     std::cout << "Time elapsed (seed table querying + aligning): " << mseconds <<" msec" << std::endl;
 
+#ifdef GPU
+    GPU_close(&s, num_threads);
+#endif
+
     return 0;
 }
 

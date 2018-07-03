@@ -177,4 +177,23 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (1<<20)*50));
 }
 
+void GPU_close(std::vector<GPU_storage> *s, int num_threads){
+  for(int i = 0; i < num_threads; ++i){
+    cudaSafeCall(cudaFree((void*)((*s)[i].ref_seqs_d))); 
+    cudaSafeCall(cudaFree((void*)((*s)[i].query_seqs_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].ref_lens_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].query_lens_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].ref_poss_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].query_poss_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].reverses_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].firsts_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].outs_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].matricess_d)));
+#ifdef STREAM
+    cudaSafeCall(cudaStreamDestroy((*s)[i].stream->stream));
+    free((*s)[i].stream);
+#endif
+  }
+}
+
 #endif // GPU

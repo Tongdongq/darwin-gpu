@@ -85,7 +85,28 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   }
 
 
+  int NUM_BLOCKS = num_blocks;
+  int THREADSPERBLOCK = threads_per_block;
 
+#ifdef STREAM
+  cudaStream_t stream = s->stream->stream;
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_lens_d, query_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_poss_d, ref_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_poss_d, query_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)reverses_d, reverses_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
+
+  Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>(ref_seqs_d, query_seqs_d, \
+    ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
+    reverses_d, firsts_d, outs_d, s->matricess_d);
+
+  cudaSafeCall(cudaStreamSynchronize(stream));
+
+  cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#else
   cudaSafeCall(cudaMemcpy((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpy((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpy((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
@@ -95,18 +116,14 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   cudaSafeCall(cudaMemcpy((void*)reverses_d, reverses_b, BATCH_SIZE, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpy((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice));
 
-  int NUM_BLOCKS = num_blocks;
-  int THREADSPERBLOCK = threads_per_block;
-
   Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK>>>(ref_seqs_d, query_seqs_d, \
     ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
     reverses_d, firsts_d, outs_d, s->matricess_d);
 
   cudaSafeCall(cudaDeviceSynchronize());
 
-  //printf("kernel done\n");
-
   cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#endif
 
   std::queue<int> BT_states;
   int off = 0;
@@ -149,6 +166,10 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].matricess_d), BATCH_SIZE*sizeof(int)*(tile_size+1)*(tile_size+9)));
+#ifdef STREAM
+    (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
+    cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));
+#endif
   }
 
   // set print buffer size (debug only)

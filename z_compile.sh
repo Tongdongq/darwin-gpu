@@ -27,6 +27,8 @@ do
 		options="$options -D COALESCE_BASES";;
 	"TIME")
 		options="$options -D TIME";;
+	"STREAM")
+		options="$options -D STREAM";;
 	"32")
 		maxregcount=32;;
 	"64")

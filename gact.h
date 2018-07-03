@@ -32,6 +32,9 @@ typedef struct {
     char reverse;   // 1: operate in reverse (towards pos = 0), 0: operate in forward direction (towards pos = len)
 } GACT_call;
 
+// implemented in cuda_header.h
+struct CUDA_Stream_Holder;
+
 typedef struct {
   const char *ref_seqs_d;
   const char *query_seqs_d;
@@ -43,6 +46,7 @@ typedef struct {
   const char *firsts_d;
   int *outs_d;
   int *matricess_d;
+  CUDA_Stream_Holder *stream;
 } GPU_storage;
 
 // each GPU thread in the batch has its own GACT_call assignment

@@ -5,6 +5,10 @@
 #define CUDA_HEADER
 
 
+struct CUDA_Stream_Holder {
+    cudaStream_t stream;  
+};
+
 
 #ifndef NOCUDA
 __constant__ int _tile_size;

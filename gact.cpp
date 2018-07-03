@@ -88,7 +88,7 @@ void GACT (char *ref_str, char *query_str, \
         j = 0;
         int tile_score = BT_states.front();
         BT_states.pop();
-
+//printf("tile_score: %d\n", tile_score);
         if (first_tile) {
             ref_pos = ref_pos - ref_tile_length + BT_states.front();
             BT_states.pop();
@@ -154,7 +154,7 @@ void GACT (char *ref_str, char *query_str, \
         j = 0;
         int tile_score = BT_states.front();
         BT_states.pop();
-
+//printf("tile_score: %d\n", tile_score);
         if (first_tile) {
             ref_pos = ref_pos + ref_tile_length - BT_states.front();
             BT_states.pop();
@@ -209,8 +209,8 @@ void GACT (char *ref_str, char *query_str, \
 io_lock.lock();
     //printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
     //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
-    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
-    //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos);
+    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score, complement);
+    //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, comp: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, complement);
 io_lock.unlock();
     callidx++;
 
@@ -340,8 +340,8 @@ int batch_no = 0;
                         }
 io_lock.lock();
                         //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
-                        printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score);
-                        //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
+                        printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
+                        //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, complement);
 io_lock.unlock();
                         calls_done++;
                         assignments[t] = next_callidx;
@@ -429,7 +429,7 @@ io_lock.unlock();
             int tile_score = BT_states.front();
             int first_tile_score;
             BT_states.pop();
-
+//printf("T%d tile_score: %d\n", t, tile_score);
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");

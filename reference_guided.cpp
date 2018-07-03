@@ -331,7 +331,8 @@ int main(int argc, char *argv[]) {
     tile_overlap = cfg.Value("GACT_extend", "tile_overlap");
 
     // Multi-threading
-    num_threads = cfg.Value("Multithreading", "num_threads");
+    //num_threads = cfg.Value("Multithreading", "num_threads");
+    num_threads = std::stoi(argv[3], nullptr);
 
     seed_shape = seed_shape_str.c_str();
     // Ignore lower case in ntcoding
@@ -346,19 +347,19 @@ int main(int argc, char *argv[]) {
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
 #ifdef BATCH
-    NUM_BLOCKS = std::stoi(argv[3], nullptr);
-    THREADS_PER_BLOCK = std::stoi(argv[4], nullptr);
+    NUM_BLOCKS = std::stoi(argv[4], nullptr);
+    THREADS_PER_BLOCK = std::stoi(argv[5], nullptr);
     BATCH_SIZE = NUM_BLOCKS * THREADS_PER_BLOCK;
 #endif
 
 #ifdef BATCH
 #ifdef GPU
-    printf("Using BATCH GPU, batch_size: %d * %d = %d", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+    printf("Using BATCH GPU, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
 #else
-    printf("Using BATCH, batch_size: %d * %d = %d", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+    printf("Using BATCH, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
 #endif	// end GPU
 #else
-    std::cout << "Running on cpu" << std::endl;
+    std::cout << "Running on cpu, CPU threads: " << num_threads << std::endl;
 #endif	// end BATCH
 
     int num_kmer = num_seeds;

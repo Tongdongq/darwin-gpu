@@ -358,9 +358,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef BATCH
 #ifdef GPU
-    printf("Using BATCH GPU, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+    printf("Using BATCH GPU, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE, num_threads);
 #else
-    printf("Using BATCH, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE);
+    printf("Using BATCH, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE, num_threads);
 #endif	// end GPU
 #else
     std::cout << "Running on cpu, CPU threads: " << num_threads << std::endl;

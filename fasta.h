@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#define SEQLINE_WRAP_LEN 50
+#define SEQLINE_WRAP_LEN 70
 
 void ParseFastaFile(std::string filename, 
                     std::vector<std::vector<std::string> >& descrips,

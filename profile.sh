@@ -36,15 +36,16 @@ METRICS="--metrics"
 M0=" gld_transactions,gst_transactions,gld_efficiency,gst_efficiency,gst_throughput,gld_throughput"
 M1=",gst_requested_throughput,gld_requested_throughput"
 M2=",l2_read_transactions,l2_write_transactions"
-M3=",shared_load_throughput,shared_store_throughput"
+M3=""
+M4=",sm_efficiency,achieved_occupancy"
 
 EVENTS="--events"
-E0=" inst_executed,gld_inst_8bit,gld_inst_16bit,gld_inst_32bit,gld_inst_64bit"
+E0=" inst_executed,gld_inst_8bit,gld_inst_32bit"
 E1=",__l1_global_load_transactions,__l1_global_store_transactions"
-E2=",l1_local_load_hit,l1_local_load_miss,l1_local_store_hit,l1_local_store_miss"
+E2=""
 E3=",l2_subp0_read_sector_misses"
 E4=",l2_subp0_total_read_sector_queries"
-E5=",shared_load,shared_store,shared_load_replay,shared_store_replay"
+E5=""
 
 if [[ "$mode" == "nf" ]]; then
 	nvprof $METRICS$M0$M1$M2$M3$M4 $EVENTS$E0$E1$E2$E3$E4$E5  ./reference_guided reference.fasta reads.fasta $T $BLOCKS $TPB 

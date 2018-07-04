@@ -170,6 +170,9 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
     cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));
 #endif
+    size_t free, total;
+    cudaMemGetInfo(&free,&total);
+    printf("%d MB free of total %d MB\n",free/1024/1024,total/1024/1024);
   }
 
   // set print buffer size (debug only)

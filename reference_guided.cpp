@@ -291,6 +291,7 @@ void AlignReads (int start_read_num, int last_read_num)
 
     delete[] bin_count_offset_array;
     delete[] nz_bins_array;
+    delete[] candidate_hit_offset;
 }
 
 int main(int argc, char *argv[]) {

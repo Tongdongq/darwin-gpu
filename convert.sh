@@ -12,6 +12,8 @@ else
 	printf "Running on ce-cuda\n"
 fi
 
-cp $src/s1.1.subreads.fasta reference.fasta
-cp $src/s1.2.subreads.fasta reads.fasta
+file=$1
+
+cp $src/$file.1.subreads.fasta reference.fasta
+cp $src/$file.2.subreads.fasta reads.fasta
 

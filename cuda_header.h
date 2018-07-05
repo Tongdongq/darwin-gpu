@@ -142,8 +142,8 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
             //int query_nt = (reverse) ? NtChar2Int(query_seq[query_len-j]) : NtChar2Int(query_seq[j-1]);
             // reverse indicates the direction of the alignment
             // 1: towards position = 0, 0: towards position = length
-            int ref_nt = (reverse) ? ref_seq[(i-1)*__Y] : ref_seq[(ref_len-i)*__Y];
-            int query_nt = (reverse) ? query_seq[(j-1)*__Y] : query_seq[(query_len-j)*__Y];
+            char ref_nt = (reverse) ? ref_seq[(i-1)*__Y] : ref_seq[(ref_len-i)*__Y];
+            char query_nt = (reverse) ? query_seq[(j-1)*__Y] : query_seq[(query_len-j)*__Y];
             int match = (query_nt == ref_nt) ? _match : _mismatch;
 
             //columnwise calculations

@@ -31,7 +31,9 @@ int THREADS_PER_BLOCK;
 int BATCH_SIZE;
 
 // GACT scoring
-int gact_sub_mat[10];
+//int gact_sub_mat[10];
+int match_score;
+int mismatch_score;
 int gap_open;
 int gap_extend;
 
@@ -206,7 +208,8 @@ void AlignReads (int start_read_num, int last_read_num)
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
-                chr_id, k, false);//*/
+                chr_id, k, false, \
+                match_score, mismatch_score, gap_open, gap_extend);//*/
 #endif
         }   // end for all num_candidates_for seed hits
         //io_lock.unlock();
@@ -246,7 +249,8 @@ void AlignReads (int start_read_num, int last_read_num)
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
-                chr_id, k, true);//*/
+                chr_id, k, true, \
+                match_score, mismatch_score, gap_open, gap_extend);//*/
 #endif
         }   // end for all num_candidates_rev seed hits
         //io_lock.unlock();
@@ -273,11 +277,17 @@ void AlignReads (int start_read_num, int last_read_num)
     gettimeofday(&begin, NULL);
 
 #ifdef GPU
-    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s);
-    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s);
+    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
+    	match_score, mismatch_score, gap_open, gap_extend);
+    
+    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s, \
+    	match_score, mismatch_score, gap_open, gap_extend);
 #else
-    GACT_Batch(GACT_calls_for, total_calls_for, false, 0);
-    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for);
+    GACT_Batch(GACT_calls_for, total_calls_for, false, 0, \
+    	match_score, mismatch_score, gap_open, gap_extend);
+
+    GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, \
+    	match_score, mismatch_score, gap_open, gap_extend);
 #endif
 
     gettimeofday(&finish, NULL);
@@ -304,7 +314,7 @@ int main(int argc, char *argv[]) {
     ConfigFile cfg("params.cfg");
 
     // GACT scoring
-    gact_sub_mat[0] = cfg.Value("GACT_scoring", "sub_AA");
+    /*gact_sub_mat[0] = cfg.Value("GACT_scoring", "sub_AA");
     gact_sub_mat[1] = cfg.Value("GACT_scoring", "sub_AC");
     gact_sub_mat[2] = cfg.Value("GACT_scoring", "sub_AG");
     gact_sub_mat[3] = cfg.Value("GACT_scoring", "sub_AT");
@@ -313,7 +323,9 @@ int main(int argc, char *argv[]) {
     gact_sub_mat[6] = cfg.Value("GACT_scoring", "sub_CT");
     gact_sub_mat[7] = cfg.Value("GACT_scoring", "sub_GG");
     gact_sub_mat[8] = cfg.Value("GACT_scoring", "sub_GT");
-    gact_sub_mat[9] = cfg.Value("GACT_scoring", "sub_TT");
+    gact_sub_mat[9] = cfg.Value("GACT_scoring", "sub_TT");*/
+    match_score     = cfg.Value("GACT_scoring", "match");
+    mismatch_score  = cfg.Value("GACT_scoring", "mismatch");
     gap_open        = cfg.Value("GACT_scoring", "gap_open");
     gap_extend      = cfg.Value("GACT_scoring", "gap_extend");
 
@@ -455,8 +467,6 @@ int main(int argc, char *argv[]) {
     // GPU init
 #ifdef GPU
     std::vector<GPU_storage> s;
-    int match_score = 1;
-    int mismatch_score = -1;
     GPU_init(tile_size, tile_overlap, gap_open, gap_extend, match_score, mismatch_score, tile_size-tile_overlap, &s, num_threads);
 #endif
 

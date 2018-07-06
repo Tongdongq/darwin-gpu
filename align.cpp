@@ -2,7 +2,12 @@
 #include <stdio.h>
 
 
-std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, std::vector<int> ref_lens, std::vector<int> query_lens, int *sub_mat, int gap_open, int gap_extend, std::vector<int> ref_poss_b, std::vector<int> query_poss_b, std::vector<char> reverses, std::vector<char> firsts, int early_terminate){
+std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, \
+  std::vector<std::string> query_seqs, \
+  std::vector<int> ref_lens, std::vector<int> query_lens, \
+  int match_score, int mismatch_score, int gap_open, int gap_extend, \
+  std::vector<int> ref_poss_b, std::vector<int> query_poss_b, \
+  std::vector<char> reverses, std::vector<char> firsts, int early_terminate){
 
   std::vector<std::queue<int> > result;
 
@@ -27,7 +32,8 @@ std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, std
     }
 
     BT_states = AlignWithBT(ref_seq, ref_len, query_seq, query_len, \
-      sub_mat, gap_open, gap_extend, query_pos, ref_pos, reverse, first, early_terminate);
+      match_score, mismatch_score, gap_open, gap_extend, \
+      query_pos, ref_pos, reverse, first, early_terminate);
 
     result.push_back(BT_states);
   }
@@ -41,7 +47,7 @@ std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, std
 //return the output of the int queue
 std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
   char* query_seq, long long int query_len, \
-  int* sub_mat, int gap_open, int gap_extend, \
+  int match_score, int mismatch_score, int gap_open, int gap_extend, \
   int query_pos, int ref_pos, bool reverse, bool first, int early_terminate) {
 
   // terminate the prgram if the R or Q length is greater than the tile size
@@ -145,7 +151,7 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
               //value from the W matrix for the match/mismatch penalty/point
               match = sub_mat[query_nt*5 + ref_nt];
           }//*/
-          int match = (query_nt == ref_nt) ? MATCH : MISMATCH;
+          int match = (query_nt == ref_nt) ? match_score : mismatch_score;
 
           //columnwise calculations
           // find out max value
@@ -160,10 +166,10 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
               m_matrix_wr[j] = 0;
           }
 
-          int ins_open   = m_matrix_rd[j] + GAP_OPEN;
-          int ins_extend = i_matrix_rd[j] + GAP_EXTEND;
-          int del_open   = m_matrix_wr[j-1] + GAP_OPEN;
-          int del_extend = d_matrix_wr[j-1] + GAP_EXTEND;
+          int ins_open   = m_matrix_rd[j] + gap_open;
+          int ins_extend = i_matrix_rd[j] + gap_extend;
+          int del_open   = m_matrix_wr[j-1] + gap_open;
+          int del_extend = d_matrix_wr[j-1] + gap_extend;
 
           i_matrix_wr[j] = (ins_open > ins_extend) ? ins_open : ins_extend;
 

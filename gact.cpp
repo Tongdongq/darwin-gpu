@@ -22,12 +22,6 @@ int sub_mat[25] = {
     0, 0, 0, 0, 0
 };
 
-int match_score = 1;
-int mismatch_score = -1;
-
-// declared in cuda_header.h
-extern int gap_open;
-extern int gap_extend;
 
 // declared in reference_guided.cpp
 extern std::vector<std::string> reference_seqs;
@@ -41,7 +35,10 @@ std::mutex io_lock;
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \
     int tile_size, int tile_overlap, \
-    int ref_pos, int query_pos, int first_tile_score_threshold, int ref_id, int query_id, bool complement) {
+    int ref_pos, int query_pos, int first_tile_score_threshold, \
+    int ref_id, int query_id, bool complement, \
+    int match_score, int mismatch_score, \
+    int gap_open, int gap_extend) {
 
     std::queue<int> BT_states;
 
@@ -81,7 +78,7 @@ void GACT (char *ref_str, char *query_str, \
             ref_tile_length, \
             query_str + query_pos - query_tile_length, \
             query_tile_length, \
-            sub_mat, gap_open, gap_extend, \
+            match_score, mismatch_score, gap_open, gap_extend, \
             query_tile_length, ref_tile_length, false, \
             first_tile, (tile_size - tile_overlap));
         i = 0;
@@ -146,7 +143,7 @@ void GACT (char *ref_str, char *query_str, \
             ref_tile_length, \
             query_str + query_pos, \
             query_tile_length, \
-            sub_mat, gap_open, gap_extend, \
+            match_score, mismatch_score, gap_open, gap_extend, \
             query_tile_length, ref_tile_length, true, \
             first_tile, (tile_size - tile_overlap));
 
@@ -220,9 +217,15 @@ io_lock.unlock();
 
 #ifdef BATCH
 #ifdef GPU
-void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, int offset, GPU_storage *s)
+void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
+    bool complement, int offset, GPU_storage *s, \
+    int match_score, int mismatch_score, \
+    int gap_open, int gap_extend)
 #else
-void GACT_Batch(std::vector<GACT_call> calls, int num_calls, bool complement, int offset)
+void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
+    bool complement, int offset, \
+    int match_score, int mismatch_score, \
+    int gap_open, int gap_extend)
 #endif
 {
     int early_terminate = tile_size - tile_overlap;

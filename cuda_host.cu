@@ -154,6 +154,8 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaMemcpyToSymbol(_mismatch, &(mismatch), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
+  int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+
   for(int i = 0; i < num_threads; ++i){
     s->push_back(GPU_storage());
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*tile_size));
@@ -165,7 +167,7 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].matricess_d), BATCH_SIZE*sizeof(int)*(tile_size+1)*(tile_size+9)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].matricess_d), BATCH_SIZE*size_matrices));
 #ifdef STREAM
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
     cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));

@@ -88,7 +88,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     int *m_matrix_rd = h_matrix_rd + (_tile_size + 1) * NTHREADS;
     int *i_matrix_rd = m_matrix_rd + (_tile_size + 1) * NTHREADS;
     int *d_matrix_rd = i_matrix_rd + (_tile_size + 1) * NTHREADS;
-    int *dir_matrix = d_matrix_rd + (_tile_size + 1) * NTHREADS;
+    char *dir_matrix = (char*)(matricess_d + (_tile_size + 1) * 8 * NTHREADS) + tid;
     //printf("T%d h_wr: %p, m_wr: %p, h_rd: %p\n", tid, h_matrix_wr, m_matrix_wr, h_matrix_rd);
 #else
     int *h_matrix_wr = matricess_d + (_tile_size + 1) * (_tile_size + 9) * tid;
@@ -255,7 +255,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
         BT_states[i++] = h_matrix_wr[query_len*__X];
     }
 
-    int state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
+    char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
     while (state != Z) {
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {

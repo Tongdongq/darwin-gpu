@@ -75,12 +75,27 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
 
   for(int t = 0; t < BATCH_SIZE; ++t){
 #ifdef COALESCE_BASES
-    for(int j = 0; j < ref_lens[t]; ++j){
+    /*for(int j = 0; j < ref_lens[t]; ++j){
       ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[j];
     }
     for(int j = 0; j < query_lens[t]; ++j){
       query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[j];
-    }
+    }//*/
+    if(reverses[t] == 1){
+      for(int j = 0; j < ref_lens[t]; ++j){
+        ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[j];
+      }
+      for(int j = 0; j < query_lens[t]; ++j){
+        query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[j];
+      }
+    }else{
+      for(int j = 0; j < ref_lens[t]; ++j){
+        ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
+      }
+      for(int j = 0; j < query_lens[t]; ++j){
+        query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[query_lens[t]-j-1];
+      }
+    }//*/
 #else
     memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
     memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);

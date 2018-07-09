@@ -146,7 +146,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
             i_matrix_rd[k*__X] = i_matrix_wr[k*__X];
             d_matrix_rd[k*__X] = d_matrix_wr[k*__X];
         }
-
+char ref_nt = ref_seq[(i-1)*__Y];
         //j - row number; i - column number
         for (int j = 1; j < query_len + 1; j++) {
             //int ref_nt = (reverse) ? NtChar2Int(ref_seq[ref_len-i]) : NtChar2Int(ref_seq[i-1]);
@@ -155,7 +155,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
             // 1: towards position = 0, 0: towards position = length
             //char ref_nt = (reverse) ? ref_seq[(i-1)*__Y] : ref_seq[(ref_len-i)*__Y];
             //char query_nt = (reverse) ? query_seq[(j-1)*__Y] : query_seq[(query_len-j)*__Y];
-            char ref_nt = ref_seq[(i-1)*__Y];
+            //char ref_nt = ref_seq[(i-1)*__Y];
             char query_nt = query_seq[(j-1)*__Y];
             int match = (query_nt == ref_nt) ? _match : _mismatch;
 

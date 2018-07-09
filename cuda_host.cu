@@ -165,7 +165,11 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaMemcpyToSymbol(_mismatch, &(mismatch), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
+#ifndef COMPRESS_DIR
   int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+#else
+  int size_matrices = sizeof(int)*(tile_size+1)*8 + ((tile_size+1)*(tile_size+1)+1)/2;
+#endif
 
   for(int i = 0; i < num_threads; ++i){
     s->push_back(GPU_storage());

@@ -126,11 +126,11 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
 
     //initialize the operands int he direction matrix for the first row and first
     //column
-    for (int i = 0; i < ref_len + 1; i++) {
+    for (int i = 0; i < (ref_len + 1)/2; i++) {
         dir_matrix[(i*row_len)*__X] = ZERO_OP;
     }
 
-    for (int j = 0; j < query_len + 1; j++) {
+    for (int j = 0; j < (query_len + 1)/2; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
 
@@ -225,11 +225,25 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
             (dir_matrix)[(i*row_len+j)*__X] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             // 7% speedup*/
             h_matrix_wr[j*__X] = tmp2;
+
+#ifndef COMPRESS_DIR
             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
-            
-
+#else
+            int idx = (i*row_len+j);
+            char value = dir_matrix[idx/2*__X];
+            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+            if(idx & 0x1){
+                tmp <<= 4;
+                value &= 0x0f;
+            }else{
+                value &= 0xf0;
+            }
+            value |= tmp;//*/
+            dir_matrix[idx/2*__X] = value;
+#endif
             /*if (h_matrix_wr[j] >= max_score) {
                 max_score = h_matrix_wr[j];
                 max_i = i;
@@ -266,27 +280,64 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
         BT_states[i++] = h_matrix_wr[query_len*__X];
     }
 
+#ifndef COMPRESS_DIR
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
+#else
+    int idx = (i_curr*row_len+j_curr);
+    char state = dir_matrix[idx/2*__X];
+    if(idx & 0x1){
+        state >>= 4;
+    }
+    state &= 0x3;
+#endif
 
     while (state != Z) {
+        //printf("T%d state: %d\n", tid, state);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
         BT_states[i++] = state;
         if (state == M) {
+#ifndef COMPRESS_DIR
             state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
+#else
+            idx = ((i_curr-1)*row_len+j_curr-1);
+            state = dir_matrix[idx/2*__X];
+            if(idx & 0x1){
+                state >>= 4;
+            }
+            state &= 0x3;
+#endif
             i_curr--;
             j_curr--;
             i_steps++;
             j_steps++;
         }
         else if (state == I) {
+#ifndef COMPRESS_DIR
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
+#else
+            idx = (i_curr*row_len+j_curr);
+            state = dir_matrix[idx/2*__X];
+            if(idx & 0x1){
+                state >>= 4;
+            }
+            state = (state & (2 << INSERT_OP)) ? M : I;
+#endif
             i_curr--;
             i_steps++;
         }
         else if (state == D) {
+#ifndef COMPRESS_DIR
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
+#else
+            idx = (i_curr*row_len+j_curr);
+            state = dir_matrix[idx/2*__X];
+            if(idx & 0x1){
+                state >>= 4;
+            }
+            state = (state & (2 << DELETE_OP)) ? M : D;
+#endif
             j_curr--;
             j_steps++;
         }

@@ -29,6 +29,8 @@ do
 		options="$options -D TIME";;
 	"STREAM")
 		options="$options -D STREAM";;
+	"CDIR")
+		options="$options -D COMPRESS_DIR";;
 	"32")
 		maxregcount=32;;
 	"64")

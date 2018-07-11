@@ -178,6 +178,8 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
     query_offsets_d, ref_offsets_d, \
+    query_poss_d, ref_poss_d, \
+    (char*)outs_d, \
     firsts_d, (char*)(s->matrices_d));
 
   cudaSafeCall(cudaStreamSynchronize(stream));
@@ -270,7 +272,6 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_poss_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].matrices_d), BATCH_SIZE*size_matrices));
 #ifdef STREAM
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
@@ -281,6 +282,9 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_query_seqs_d), BATCH_SIZE*tile_size));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*2*tile_size));
+#else
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
 #endif
     size_t free, total;
     cudaMemGetInfo(&free,&total);

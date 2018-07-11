@@ -118,6 +118,8 @@ __global__ void gasal_local_kernel( \
     uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
     int32_t *query_offsets, int32_t *target_offsets, \
+    const int *query_poss, const int *ref_poss,
+    char *out,
     const char *firsts, char *dir_matrix
     /*, \
     int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
@@ -132,6 +134,9 @@ __global__ void gasal_local_kernel( \
         int32_t maxXY_x = 0;
         int32_t maxXY_y = 0;
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+        const int query_pos = query_poss[tid];
+        const int ref_pos = ref_poss[tid];
+        out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
         packed_query_batch += query_offsets[tid] >> 3;
@@ -188,11 +193,11 @@ if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mis
                         int32_t prev_hm_diff = h[0] + _gap_open;
 #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
+                            int ii = i*8+m-1;
+                            int jj = j*8+7-k/4;
                             uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 if(tid==1){
     //printf("gbase: %d, rbase: %d\n", gbase, rbase);
-    int ii = i*8+m-1;
-    int jj = j*8+7-k/4;
     if((ii == 5 || ii == 6) && (jj == 2 | jj == 1)){
         printf("i: %d, j: %d\n", ii, jj);
     }
@@ -200,8 +205,13 @@ if(tid==1){
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
                             AlnOp tmp = MATCH_OP;
                             subScore = (rbase == gbase) ? _match : _mismatch;
-                            int32_t curr_hm_diff = h[m] + _gap_open;
-                            f[m] = max(curr_hm_diff, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
+                            int32_t curr_hm_diff = h[m] + _gap_open - _gap_extend;
+                            if(curr_hm_diff > f[m]){
+                                f[m] = curr_hm_diff;
+                                tmp |= 0x4;
+                            }
+                            f[m] += _gap_extend;
+                            //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             h[m] = p[m] + subScore;//score if rbase is aligned to gbase
                             if(f[m] > h[m]){
                                 tmp = INSERT_OP;
@@ -214,8 +224,13 @@ if(tid==1){
                             }
                             //h[m] = max(h[m], 0);
                             //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
-                            e = max(h[m-1] + _gap_open, e + _gap_extend);
-                            prev_hm_diff = curr_hm_diff;
+                            //e = max(h[m-1] + _gap_open, e + _gap_extend);
+                            if(h[m-1] + _gap_open - _gap_extend > e){
+                                e = h[m-1] + _gap_open - _gap_extend;
+                                tmp |= 0x4;
+                            }
+                            e += _gap_extend;
+                            //prev_hm_diff = curr_hm_diff;
                             if(e > h[m]){
                                 tmp = DELETE_OP;
                                 h[m] = e;
@@ -223,8 +238,6 @@ if(tid==1){
                             //h[m] = max(h[m], e);
                             FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 if(tid==1){
-    int ii = i*8+m-1;
-    int jj = j*8+7-k/4;
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
     //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
     if(ii < 8 && jj < 8){
@@ -237,7 +250,7 @@ if(tid==11){
     printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d\n", tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase);
 }
                             p[m] = h[m-1];
-                            //dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
+                            dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
                         }
                         //----------save intermediate values------------
                         HD.x = h[m-1];
@@ -257,6 +270,10 @@ if(tid==11){
         //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
         printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
+
+
+
+
 
         return;
 } // end gasal_local_kernel()

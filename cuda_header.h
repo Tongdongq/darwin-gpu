@@ -44,13 +44,13 @@ __constant__ int _early_terminate;
     #define __Y 1
 #endif
 
-// for GASAL: DELETE_OP means a ref_base is 'aligned' to a gap
+// for GASAL: DELETE_OP means a query_base is 'aligned' to a gap
 
 typedef int AlnOp;
 enum AlnOperands {ZERO_OP, DELETE_OP, INSERT_OP, MATCH_OP};
 enum states {Z, D, I, M};
 
-#define INF (1 << 30)
+#define INF (1 << 29)
 
 #define MAX_SEQ_LEN 320
 
@@ -119,7 +119,7 @@ __global__ void gasal_local_kernel( \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
     int32_t *query_offsets, int32_t *target_offsets, \
     const int *query_poss, const int *ref_poss,
-    char *out,
+    short *out,
     const char *firsts, char *dir_matrix
     /*, \
     int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
@@ -154,7 +154,7 @@ __global__ void gasal_local_kernel( \
         int32_t read_len = query_batch_lens[tid];
         int32_t ref_len = target_batch_lens[tid];
         const char first = firsts[tid];
-        dir_matrix += (_tile_size+1)*(_tile_size+1)*tid;
+        dir_matrix += tid;
         if(ref_len == -1){return;}
         uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence

@@ -287,18 +287,79 @@ void AlignReads (int start_read_num, int last_read_num)
     gettimeofday(&begin, NULL);
 
 #ifdef GPU
+//#ifdef GASAL
+    // change bases from chars to 2 bit values
+    for(int i = 0; i < reference_seqs.size(); ++i){
+        for(int j = 0; j < reference_seqs[i].length(); ++j){
+            switch(reference_seqs[i][j]){
+                case 'A':
+                reference_seqs[i][j] = 0;
+                break;
+                case 'C':
+                reference_seqs[i][j] = 1;
+                break;
+                case 'T':
+                reference_seqs[i][j] = 2;
+                break;
+                case 'G':
+                reference_seqs[i][j] = 3;
+            }
+        }
+    }
+    for(int i = 0; i < reads_seqs.size(); ++i){
+        for(int j = 0; j < reads_seqs[i].length(); ++j){
+            switch(reads_seqs[i][j]){
+                case 'A':
+                reads_seqs[i][j] = 0;
+                break;
+                case 'C':
+                reads_seqs[i][j] = 1;
+                break;
+                case 'T':
+                reads_seqs[i][j] = 2;
+                break;
+                case 'G':
+                reads_seqs[i][j] = 3;
+            }
+        }
+    }
+    for(int i = 0; i < rev_reads_seqs.size(); ++i){
+        for(int j = 0; j < rev_reads_seqs[i].length(); ++j){
+            switch(rev_reads_seqs[i][j]){
+                case 'A':
+                rev_reads_seqs[i][j] = 0;
+                break;
+                case 'C':
+                rev_reads_seqs[i][j] = 1;
+                break;
+                case 'T':
+                rev_reads_seqs[i][j] = 2;
+                break;
+                case 'G':
+                rev_reads_seqs[i][j] = 3;
+            }
+        }
+    }
+    gettimeofday(&finish, NULL);
+
+    useconds = finish.tv_usec - begin.tv_usec;
+    seconds = finish.tv_sec - begin.tv_sec;
+    mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    std::cout << "Time converting bases: " << mseconds <<" msec" << std::endl;
+//#endif // GASAL
+
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
-    	match_score, mismatch_score, gap_open, gap_extend);
+        match_score, mismatch_score, gap_open, gap_extend);
     
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s, \
-    	match_score, mismatch_score, gap_open, gap_extend);
-#else
+        match_score, mismatch_score, gap_open, gap_extend);
+#else // GPU
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, \
-    	match_score, mismatch_score, gap_open, gap_extend);
+        match_score, mismatch_score, gap_open, gap_extend);
 
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, \
-    	match_score, mismatch_score, gap_open, gap_extend);
-#endif
+        match_score, mismatch_score, gap_open, gap_extend);
+#endif // GPU
 
     gettimeofday(&finish, NULL);
 
@@ -384,10 +445,10 @@ int main(int argc, char *argv[]) {
     printf("Using BATCH GPU, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE, num_threads);
 #else
     printf("Using BATCH, batch_size: %d * %d = %d, CPU threads: %d\n", NUM_BLOCKS, THREADS_PER_BLOCK, BATCH_SIZE, num_threads);
-#endif	// end GPU
+#endif  // end GPU
 #else
     std::cout << "Running on cpu, CPU threads: " << num_threads << std::endl;
-#endif	// end BATCH
+#endif  // end BATCH
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;

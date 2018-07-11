@@ -47,6 +47,12 @@ typedef struct {
 struct CUDA_Stream_Holder;
 
 typedef struct {
+#ifdef GASAL
+  uint32_t *packed_ref_seqs_d;
+  uint32_t *packed_query_seqs_d;
+  int32_t *ref_offsets_d;
+  int32_t *query_offsets_d;
+#endif
   const char *ref_seqs_d;
   const char *query_seqs_d;
   const int *ref_lens_d;

@@ -31,6 +31,8 @@ do
 		options="$options -D STREAM";;
 	"CDIR")
 		options="$options -D COMPRESS_DIR";;
+	"GASAL")
+		options="$options -D GASAL";;
 	"32")
 		maxregcount=32;;
 	"64")

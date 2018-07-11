@@ -72,8 +72,13 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   reverses_b = (char*)malloc(BATCH_SIZE);
   firsts_b = (char*)malloc(BATCH_SIZE);
   outs_b = (int*)malloc(BATCH_SIZE * sizeof(int) * 2 * tile_size);
+#ifdef GASAL
+  int32_t *query_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
+  int32_t *ref_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
+#endif
 
   for(int t = 0; t < BATCH_SIZE; ++t){
+#ifndef GASAL
 #ifdef COALESCE_BASES
     /*for(int j = 0; j < ref_lens[t]; ++j){
       ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[j];
@@ -96,12 +101,15 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
         query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[query_lens[t]-j-1];
       }
     }//*/
+    ref_curr += tile_size;
+    query_curr += tile_size;
 #else
     memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
     memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
-#endif
     ref_curr += tile_size;
     query_curr += tile_size;
+#endif // COALESCE_BASES
+#endif // GASAL
     ref_lens_b[t] = ref_lens[t];
     query_lens_b[t] = query_lens[t];
     ref_poss_b[t] = ref_poss[t];
@@ -110,11 +118,71 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
     firsts_b[t] = firsts[t];
   }
 
-
   int NUM_BLOCKS = num_blocks;
   int THREADSPERBLOCK = threads_per_block;
 
 #ifdef STREAM
+#ifdef GASAL
+  for(int t = 0; t < BATCH_SIZE; ++t){
+    ref_offsets_b[t] = ref_curr;
+    query_offsets_b[t] = query_curr;
+    memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
+    memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    ref_curr += ref_lens[t];
+    query_curr += query_lens[t];
+    while(ref_curr % 8 != 0){
+      printf("NOTE: appending ref, T%d\n", t);
+      ref_seqs_b[ref_curr++] = 4;
+    }
+    while(query_curr % 8 != 0){
+      printf("NOTE: appending query, T%d\n", t);
+      query_seqs_b[query_curr++] = 5;
+    }
+  }
+  for(int i = 0; i < 640; ++i){
+    if(i%8==0)printf(" ");
+    printf("%d", query_seqs_b[i]);
+  }printf("\n");
+  for(int i = 0; i < 640; ++i){
+    if(i%8==0)printf(" ");
+    printf("%d", ref_seqs_b[i]);
+  }printf("\n");
+  uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
+  uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
+  int32_t *query_offsets_d = s->query_offsets_d;
+  int32_t *ref_offsets_d = s->ref_offsets_d;
+  int query_batch_tasks_per_thread = (int)ceil((double)ref_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
+  int target_batch_tasks_per_thread = (int)ceil((double)query_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
+
+  cudaStream_t stream = s->stream->stream;
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_lens_d, query_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_poss_d, ref_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_poss_d, query_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)reverses_d, reverses_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)query_offsets_d, query_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+  cudaSafeCall(cudaMemcpyAsync((void*)ref_offsets_d, ref_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
+
+  gasal_pack_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
+    (uint32_t*)query_seqs_d, (uint32_t*)ref_seqs_d, \
+    packed_query_seqs_d, packed_ref_seqs_d, \
+    (uint32_t)query_batch_tasks_per_thread, (uint32_t)target_batch_tasks_per_thread, \
+    ref_curr / 4, query_curr / 4);
+
+  cudaSafeCall(cudaStreamSynchronize(stream));
+
+  gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
+    packed_query_seqs_d, packed_ref_seqs_d, \
+    query_lens_d, ref_lens_d, \
+    query_offsets_d, ref_offsets_d);
+
+  cudaSafeCall(cudaStreamSynchronize(stream));
+
+  cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#else // GASAL
   cudaStream_t stream = s->stream->stream;
   cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
@@ -132,7 +200,8 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   cudaSafeCall(cudaStreamSynchronize(stream));
 
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
-#else
+#endif // GASAL
+#else // STREAM
   cudaSafeCall(cudaMemcpy((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpy((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpy((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
@@ -201,6 +270,12 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 #ifdef STREAM
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
     cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));
+#endif
+#ifdef GASAL
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_ref_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_query_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
 #endif
     size_t free, total;
     cudaMemGetInfo(&free,&total);

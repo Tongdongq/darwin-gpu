@@ -50,6 +50,197 @@ enum states {Z, D, I, M};
 
 #define INF (1 << 30)
 
+#define MAX_SEQ_LEN 320
+
+__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
+        uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch,
+        int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) {
+
+    int32_t i;
+    const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+    uint32_t n_threads = gridDim.x * blockDim.x;
+if(tid==0){
+    //printf("packing\n");
+    for(i = 0; i < 50; ++i){
+        //printf("%d\n", ((char*)unpacked_query_batch)[i]);
+    }
+}
+    for (i = 0; i < query_batch_tasks_per_thread &&  (((i*n_threads)<<1) + (tid<<1) < total_query_batch_regs); ++i) {
+        uint32_t *query_addr = &(unpacked_query_batch[(i*n_threads)<<1]);
+        uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
+        uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
+        //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
+        uint32_t packed_reg = 0;
+        packed_reg |= (reg1 & 15) << 28;        // ---
+        packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
+        packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
+        packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
+        packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
+        packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
+        packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
+        packed_reg |= ((reg2 >> 24) & 15);      //----
+        uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
+        packed_query_addr[tid] = packed_reg; //write 8 bases of packed query sequence to global memory
+        //printf("T%d packed_query_addr: %p\n", tid, packed_query_addr+tid);
+    }
+/*if(tid==1){
+    for(i = 0; i < 80; ++i){
+        printf("%08x ", packed_query_batch[i]);
+    }printf("\n");
+}//*/
+    for (i = 0; i < target_batch_tasks_per_thread &&  (((i*n_threads)<<1) + (tid<<1)) < total_target_batch_regs; ++i) {
+        uint32_t *target_addr = &(unpacked_target_batch[(i * n_threads)<<1]);
+        uint32_t reg1 = target_addr[(tid << 1)]; //load 4 bases of the target sequence from global memory
+        uint32_t reg2 = target_addr[(tid << 1) + 1]; //load  another 4 bases
+        uint32_t packed_reg = 0;
+        packed_reg |= (reg1 & 15) << 28;        // ---
+        packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
+        packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
+        packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
+        packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
+        packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
+        packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
+        packed_reg |= ((reg2 >> 24) & 15);      //----
+        uint32_t *packed_target_addr = &(packed_target_batch[i * n_threads]);
+        packed_target_addr[tid] = packed_reg; //write 8 bases of packed target sequence to global memory
+    }
+
+} // end gasal_pack_kernel()
+
+
+#define FIND_MAX(curr, gidx) \
+    maxXY_y = (maxHH < curr) ? gidx : maxXY_y;\
+    maxHH = (maxHH < curr) ? curr : maxHH;
+
+__global__ void gasal_local_kernel( \
+    uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
+    const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
+    int32_t *query_offsets, int32_t *target_offsets
+    /*, \
+    int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
+        int32_t i, j, k, m, l;
+        int32_t e;
+        int32_t maxHH = 0;//initialize the maximum score to zero
+        int32_t prev_maxHH = 0;
+        int32_t subScore;
+        int32_t ridx, gidx;
+        short2 HD;
+        short2 initHD = make_short2(0, 0);
+        int32_t maxXY_x = 0;
+        int32_t maxXY_y = 0;
+        const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+        //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
+        //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
+        packed_query_batch += query_offsets[tid] >> 3;
+        packed_target_batch += target_offsets[tid] >> 3;
+        printf("T%d query offset: %d, %p, ref offset: %d, %p\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch);
+        if(tid==0){
+            printf("query: ");
+            for(i = 0; i < 20; ++i){
+                printf("%x ", packed_query_batch[i], packed_query_batch+i);
+            }printf("\nref: ");
+            for(i = 0; i < 20; ++i){
+                printf("%x ", packed_target_batch[i], packed_target_batch+i);
+            }printf("\n");
+        }
+        int32_t read_len = query_batch_lens[tid];
+        int32_t ref_len = target_batch_lens[tid];
+        if(ref_len == -1){return;}
+        uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
+        uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
+        //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
+if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
+        //-----arrays for saving intermediate values------
+        short2 global[MAX_SEQ_LEN];
+        int32_t h[9];
+        int32_t f[9];
+        int32_t p[9];
+        //--------------------------------------------
+        for (i = 0; i < MAX_SEQ_LEN; i++) {
+            global[i] = initHD;
+        }
+        for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
+            for (m = 0; m < 9; m++) {
+                    h[m] = 0;
+                    f[m] = 0;
+                    p[m] = 0;
+            }
+            register uint32_t gpac = packed_target_batch[i];//load 8 packed bases from target_batch sequence
+            gidx = i << 3;
+            ridx = 0;
+            for (j = 0; j < query_batch_regs; j++) { //query_batch sequence in columns
+                register uint32_t rpac = packed_query_batch[j];//load 8 bases from query_batch sequence
+
+                //--------------compute a tile of 8x8 cells-------------------
+                    for (k = 28; k >= 0; k -= 4) {
+                        uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
+//if(tid==0){printf("base: %d\n", rbase);}
+                        //-----load intermediate values--------------
+                        HD = global[ridx];
+                        h[0] = HD.x;
+                        e = HD.y;
+                        //-------------------------------------------
+                        int32_t prev_hm_diff = h[0] + _gap_open;
+#pragma unroll 8
+                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
+                            uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
+if(tid==1){
+    //printf("gbase: %d, rbase: %d\n", gbase, rbase);
+    int ii = i*8+m-1;
+    int jj = j*8+7-k/4;
+    if((ii == 5 || ii == 6) && (jj == 2 | jj == 1)){
+        printf("i: %d, j: %d\n", ii, jj);
+    }
+}
+                            //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
+                            subScore = (rbase == gbase) ? _match : _mismatch;
+                            int32_t curr_hm_diff = h[m] + _gap_open;
+                            f[m] = max(curr_hm_diff, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
+                            h[m] = p[m] + subScore;//score if rbase is aligned to gbase
+                            h[m] = max(h[m], f[m]);
+                            h[m] = max(h[m], 0);
+                            //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
+                            e = max(h[m-1] + _gap_open, e + _gap_extend);
+                            prev_hm_diff = curr_hm_diff;
+                            h[m] = max(h[m], e);
+                            FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
+if(tid==1){
+    int ii = i*8+m-1;
+    int jj = j*8+7-k/4;
+    //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
+    //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
+    if(ii < 8 && jj < 8){
+        //printf("i: %d, j: %d, ref: %d, query: %d\n", ii, jj, gbase, rbase);
+        //printf("score: %d, i: %d, j: %d, ref: %d, query: %d\n", h[m], ii, jj, gbase, rbase);
+        printf("i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore);
+    }
+}
+                            p[m] = h[m-1];
+                        }
+                        //----------save intermediate values------------
+                        HD.x = h[m-1];
+                        HD.y = e;
+                        global[ridx] = HD;
+                        //---------------------------------------------
+                        maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
+                        prev_maxHH = max(maxHH, prev_maxHH);
+                        ridx++;
+                    } // end of 8x8 tile
+                //-------------------------------------------------------
+            } // end for all query bases
+        } // end for all target bases
+
+        //score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+        //query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
+        //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+
+        printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
+
+        return;
+} // end gasal_local_kernel()
+
+
+
 __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     const int *ref_lens_d, const int *query_lens_d, \
     const int *ref_poss_d, const int *query_poss_d, \
@@ -69,7 +260,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     const int query_len = query_lens_d[tid];
     const int ref_pos = ref_poss_d[tid];
     const int query_pos = query_poss_d[tid];
-    const char reverse = reverses_d[tid];
+    //const char reverse = reverses_d[tid];
     const char first = firsts_d[tid];
     const int row_len = _tile_size + 1;
     int *out = outs_d + tid * 2 * _tile_size;
@@ -133,8 +324,13 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int j = 0; j < (query_len + 1)/2; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
-
-
+if(tid==1){
+    printf("query: ");
+    for(int i = 0; i < 20; ++i){
+        printf("%d", query_seq[i*__Y]);
+    }printf("\n");
+}
+printf("query_seq: %p\n", query_seq);
     int max_score = 0;
     int max_i = 0;
     int max_j = 0;
@@ -256,7 +452,12 @@ char ref_nt = ref_seq[(i-1)*__Y];
                 max_i = i;
                 max_j = j;
             }//*/
-
+if(tid==1){
+    if(i-1 < 50 && j-1 < 50){
+        //printf("i: %d, j: %d, ref: %d, query: %d\n", i-1, j-1, ref_nt, query_nt);
+        printf("i: %d, j: %d, score: %d, ref: %d, query: %d\n", i-1, j-1, tmp2, ref_nt, query_nt);
+    }
+}
             /*if ((i == ref_pos) && (j == query_pos)) {
                 pos_score = h_matrix_wr[j*__X];
             }//*/
@@ -264,7 +465,7 @@ char ref_nt = ref_seq[(i-1)*__Y];
         }
     }
 
-    //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i, max_j);
+    printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i, max_j);
 
     int *BT_states = out;
     int i = 1;
@@ -345,7 +546,7 @@ char ref_nt = ref_seq[(i-1)*__Y];
         }
     };
     BT_states[0] = i - 1;
-	//printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    //printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     i_curr, j_curr, i_steps, j_steps);
 
     /*std::queue<int> BT_states;
@@ -415,7 +616,7 @@ inline void __cudaSafeCall( cudaError err, const char *file, const int line )
       if ( cudaSuccess != err )
       {
           //std::cerr << "cudaSafeCall() failed at " << file << ":" << line << ":" << cudaGetErrorString(err) << std::endl;
-      	  printf("\ncudaSafeCall() failed at %s: %d: %s\n\n", file, line, cudaGetErrorString(err));
+          printf("\ncudaSafeCall() failed at %s: %d: %s\n\n", file, line, cudaGetErrorString(err));
           exit( -1 );
       }
   }

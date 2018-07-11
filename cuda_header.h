@@ -44,6 +44,8 @@ __constant__ int _early_terminate;
     #define __Y 1
 #endif
 
+// for GASAL: DELETE_OP means a ref_base is 'aligned' to a gap
+
 typedef int AlnOp;
 enum AlnOperands {ZERO_OP, DELETE_OP, INSERT_OP, MATCH_OP};
 enum states {Z, D, I, M};
@@ -115,7 +117,8 @@ if(tid==0){
 __global__ void gasal_local_kernel( \
     uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
-    int32_t *query_offsets, int32_t *target_offsets
+    int32_t *query_offsets, int32_t *target_offsets, \
+    const char *firsts, char *dir_matrix
     /*, \
     int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
         int32_t i, j, k, m, l;
@@ -145,6 +148,8 @@ __global__ void gasal_local_kernel( \
         }
         int32_t read_len = query_batch_lens[tid];
         int32_t ref_len = target_batch_lens[tid];
+        const char first = firsts[tid];
+        dir_matrix += (_tile_size+1)*(_tile_size+1)*tid;
         if(ref_len == -1){return;}
         uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
@@ -193,16 +198,29 @@ if(tid==1){
     }
 }
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
+                            AlnOp tmp = MATCH_OP;
                             subScore = (rbase == gbase) ? _match : _mismatch;
                             int32_t curr_hm_diff = h[m] + _gap_open;
                             f[m] = max(curr_hm_diff, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             h[m] = p[m] + subScore;//score if rbase is aligned to gbase
-                            h[m] = max(h[m], f[m]);
-                            h[m] = max(h[m], 0);
+                            if(f[m] > h[m]){
+                                tmp = INSERT_OP;
+                                h[m] = f[m];
+                            }
+                            //h[m] = max(h[m], f[m]);
+                            if(0 > h[m]){
+                                tmp = ZERO_OP;
+                                h[m] = 0;
+                            }
+                            //h[m] = max(h[m], 0);
                             //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
                             e = max(h[m-1] + _gap_open, e + _gap_extend);
                             prev_hm_diff = curr_hm_diff;
-                            h[m] = max(h[m], e);
+                            if(e > h[m]){
+                                tmp = DELETE_OP;
+                                h[m] = e;
+                            }
+                            //h[m] = max(h[m], e);
                             FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 if(tid==1){
     int ii = i*8+m-1;
@@ -215,7 +233,11 @@ if(tid==1){
         printf("i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore);
     }
 }
+if(tid==11){
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d\n", tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase);
+}
                             p[m] = h[m-1];
+                            //dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
                         }
                         //----------save intermediate values------------
                         HD.x = h[m-1];
@@ -457,6 +479,9 @@ if(tid==1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", i-1, j-1, ref_nt, query_nt);
         printf("i: %d, j: %d, score: %d, ref: %d, query: %d\n", i-1, j-1, tmp2, ref_nt, query_nt);
     }
+}
+if(tid==11){
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d\n", tid, i-1, j-1, tmp2, ref_nt, query_nt);
 }
             /*if ((i == ref_pos) && (j == query_pos)) {
                 pos_score = h_matrix_wr[j*__X];

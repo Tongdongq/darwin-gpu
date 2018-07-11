@@ -177,7 +177,8 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
-    query_offsets_d, ref_offsets_d);
+    query_offsets_d, ref_offsets_d, \
+    firsts_d, (char*)(s->matrices_d));
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
@@ -195,7 +196,7 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
 
   Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>(ref_seqs_d, query_seqs_d, \
     ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
-    reverses_d, firsts_d, outs_d, s->matricess_d);
+    reverses_d, firsts_d, outs_d, s->matrices_d);
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
@@ -213,7 +214,7 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
 
   Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK>>>(ref_seqs_d, query_seqs_d, \
     ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
-    reverses_d, firsts_d, outs_d, s->matricess_d);
+    reverses_d, firsts_d, outs_d, s->matrices_d);
 
   cudaSafeCall(cudaDeviceSynchronize());
 
@@ -249,11 +250,15 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaMemcpyToSymbol(_mismatch, &(mismatch), sizeof(int), 0, cudaMemcpyHostToDevice));
   cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
+#ifdef GASAL
+  int size_matrices = (tile_size+1)*(tile_size+1);
+#else // GASAL
 #ifndef COMPRESS_DIR
   int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
 #else
   int size_matrices = sizeof(int)*(tile_size+1)*8 + ((tile_size+1)*(tile_size+1)+1)/2;
-#endif
+#endif // COMPRESS_DIR
+#endif // GASAL
 
   for(int i = 0; i < num_threads; ++i){
     s->push_back(GPU_storage());
@@ -266,7 +271,7 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].matricess_d), BATCH_SIZE*size_matrices));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].matrices_d), BATCH_SIZE*size_matrices));
 #ifdef STREAM
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
     cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));
@@ -298,10 +303,16 @@ void GPU_close(std::vector<GPU_storage> *s, int num_threads){
     cudaSafeCall(cudaFree((void*)((*s)[i].reverses_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].firsts_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].outs_d)));
-    cudaSafeCall(cudaFree((void*)((*s)[i].matricess_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].matrices_d)));
 #ifdef STREAM
     cudaSafeCall(cudaStreamDestroy((*s)[i].stream->stream));
     free((*s)[i].stream);
+#endif
+#ifdef GASAL
+    cudaSafeCall(cudaFree((void*)((*s)[i].packed_ref_seqs_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].packed_query_seqs_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].ref_offsets_d)));
+    cudaSafeCall(cudaFree((void*)((*s)[i].query_offsets_d)));
 #endif
   }
 }

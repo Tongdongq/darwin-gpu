@@ -62,7 +62,7 @@ typedef struct {
   const char *reverses_d;
   const char *firsts_d;
   int *outs_d;
-  int *matricess_d;
+  int *matrices_d;
   CUDA_Stream_Holder *stream;
 } GPU_storage;
 

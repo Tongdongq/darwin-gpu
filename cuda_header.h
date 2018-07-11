@@ -142,7 +142,8 @@ __global__ void gasal_local_kernel( \
         packed_query_batch += query_offsets[tid] >> 3;
         packed_target_batch += target_offsets[tid] >> 3;
         printf("T%d query offset: %d, %p, ref offset: %d, %p\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch);
-        if(tid==0){
+        printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
+        if(tid==2){
             printf("query: ");
             for(i = 0; i < 20; ++i){
                 printf("%x ", packed_query_batch[i], packed_query_batch+i);
@@ -196,7 +197,7 @@ if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mis
                             int ii = i*8+m-1;
                             int jj = j*8+7-k/4;
                             uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
-if(tid==1){
+if(tid==2){
     //printf("gbase: %d, rbase: %d\n", gbase, rbase);
     if((ii == 5 || ii == 6) && (jj == 2 | jj == 1)){
         printf("i: %d, j: %d\n", ii, jj);
@@ -238,8 +239,25 @@ if(tid==1){
                             //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
                             //e = max(h[m-1] + _gap_open, e + _gap_extend);
                             //h[m] = max(h[m], e);
-                            FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
-if(tid==11){
+                            //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
+                            if(h[m] >= maxHH){
+if(tid==2){
+    printf("new max: %d\n", h[m]);
+}
+                                if(h[m] == maxHH){
+                                    if(ii < maxXY_y){
+                                        if(jj < maxXY_x){
+                                            maxXY_y = ii;
+                                            maxXY_x = jj;
+                                        }
+                                    }
+                                }else{
+                                    maxXY_y = ii;
+                                    maxXY_x = jj;
+                                    maxHH = h[m];
+                                }
+                            }
+if(tid==2){
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
     //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
     if(ii < 1 && jj < 1){
@@ -249,7 +267,7 @@ if(tid==11){
             i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
-if(tid==11){
+if(tid==2){
     printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
         tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
 }
@@ -261,8 +279,8 @@ if(tid==11){
                         HD.y = e;
                         global[ridx] = HD;
                         //---------------------------------------------
-                        maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
-                        prev_maxHH = max(maxHH, prev_maxHH);
+                        //maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
+                        //prev_maxHH = max(maxHH, prev_maxHH);
                         ridx++;
                     } // end of 8x8 tile
                 //-------------------------------------------------------
@@ -279,6 +297,7 @@ if(tid==11){
         i = 1;
         int i_curr = ref_pos, j_curr = query_pos;
         int i_steps = 0, j_steps = 0;
+if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
 
         if(first){
             i_curr = maxXY_y;
@@ -293,6 +312,7 @@ printf("T%d dir_matrix: %p\n", tid, dir_matrix);
         char state = dir_matrix[(i_curr*_tile_size+j_curr)*__X] % 4;
 
         while (state != Z) {
+if(tid==2)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps);
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
             }
@@ -348,6 +368,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     const int query_len = query_lens_d[tid];
     const int ref_pos = ref_poss_d[tid];
     const int query_pos = query_poss_d[tid];
+    printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
     //const char reverse = reverses_d[tid];
     const char first = firsts_d[tid];
     const int row_len = _tile_size + 1;
@@ -416,7 +437,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int j = 0; j < (query_len + 1)/2; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
-if(tid==1){
+if(tid==2){
     printf("query: ");
     for(int i = 0; i < 20; ++i){
         printf("%d", query_seq[i*__Y]);
@@ -473,6 +494,9 @@ char ref_nt = ref_seq[(i-1)*__Y];
             m_matrix_wr[j*__X] = tmp2;
 
             int ins_open   = m_matrix_rd[j*__X] + _gap_open;
+if(tid==2 && i-1==18 && j-1==5){
+    printf("X m_rd: %d, ins_open: %d\n", m_matrix_rd[j*__X], ins_open);
+}
             int ins_extend = i_matrix_rd[j*__X] + _gap_extend;
             int del_open   = m_matrix_wr[(j-1)*__X] + _gap_open;
             int del_extend = d_matrix_wr[(j-1)*__X] + _gap_extend;
@@ -515,6 +539,9 @@ char ref_nt = ref_seq[(i-1)*__Y];
             (dir_matrix)[(i*row_len+j)*__X] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             // 7% speedup*/
             h_matrix_wr[j*__X] = tmp2;
+if(tid==2 && i-1==18 && j-1==5){
+    printf("X h_wr: %d\n", h_matrix_wr[j*__X]);
+}
 
 #ifndef COMPRESS_DIR
             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
@@ -539,18 +566,18 @@ char ref_nt = ref_seq[(i-1)*__Y];
                 max_i = i;
                 max_j = j;
             }// 4% speedup*/
-            if (tmp2 >= max_score) {
+            if (tmp2 > max_score) {
                 max_score = tmp2;
                 max_i = i;
                 max_j = j;
             }//*/
-if(tid==11){
+if(tid==2){
     if(i-1 < 1 && j-1 < 1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", i-1, j-1, ref_nt, query_nt);
         printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, m: %d, i: %d, d: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, m_matrix_wr[j*__X], i_matrix_wr[j*__X], d_matrix_wr[j*__X]);
     }
 }
-if(tid==11){
+if(tid==2){
     printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
      tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend, del_open, del_extend);
 }
@@ -567,6 +594,7 @@ if(tid==11){
     int i = 1;
     int i_curr = ref_pos, j_curr = query_pos;
     int i_steps = 0, j_steps = 0;
+if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr-1, j_curr-1);
 
     if(first){
         i_curr = max_i;
@@ -591,7 +619,7 @@ if(tid==11){
 #endif
 
     while (state != Z) {
-        //printf("T%d state: %d\n", tid, state);
+if(tid==2)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d\n", tid, state, i_curr-1, j_curr-1, i_steps, j_steps);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
@@ -643,7 +671,7 @@ if(tid==11){
     };
     BT_states[0] = i - 1;
     printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
-    tid, i_curr, j_curr, i_steps, j_steps);
+    tid, i_curr-1, j_curr-1, i_steps, j_steps);
 
     /*std::queue<int> BT_states;
     int i_curr=ref_pos, j_curr=query_pos;

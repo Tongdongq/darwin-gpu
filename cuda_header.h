@@ -203,44 +203,40 @@ if(tid==1){
     }
 }
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-                            AlnOp tmp = MATCH_OP;
-                            char tmp2 = 0;
+                            int ins_open = h[m-1] + _gap_open;
+                            int ins_extend = e + _gap_extend;
+                            int del_open = h[m] + _gap_open;
+                            int del_extend = f[m] + _gap_extend;
+                            AlnOp tmp = ZERO_OP;
+                            int tmp2 = 0;
                             subScore = (rbase == gbase) ? _match : _mismatch;
-                            int32_t curr_hm_diff = h[m] + _gap_open - _gap_extend;
-                            if(curr_hm_diff >= f[m]){
-                                f[m] = curr_hm_diff;
-                                //tmp |= 0x4;
-                                tmp2 |= 0x4;
+                            int match = p[m] + subScore;
+
+                            if(match > tmp2){
+                                tmp2 = match;
+                                tmp = MATCH_OP;
                             }
-                            f[m] += _gap_extend;
-                            //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
-                            h[m] = p[m] + subScore;//score if rbase is aligned to gbase
-                            if(f[m] > h[m]){
+                            e = max(ins_open, ins_extend);
+                            if(e > tmp2){
+                                tmp2 = e;
+                                tmp = INSERT_OP;
+                            }
+                            f[m] = max(del_open, del_extend);
+                            if(f[m] > tmp2){
+                                tmp2 = f[m];
                                 tmp = DELETE_OP;
-                                h[m] = f[m];
                             }
+
+                            tmp += (ins_open >= ins_extend) ? 0x8 : 0;
+                            tmp += (del_open >= del_extend) ? 0x4 : 0;
+
+                            h[m] = tmp2;
+
+                            //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             //h[m] = max(h[m], f[m]);
-                            if(0 >= h[m]){
-                                tmp = ZERO_OP;
-                                h[m] = 0;
-                            }
                             //h[m] = max(h[m], 0);
                             //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
                             //e = max(h[m-1] + _gap_open, e + _gap_extend);
-                            int ins_open = h[m-1] + _gap_open;
-                            int ins_extend = e + _gap_extend;
-                            if(h[m-1] + _gap_open - _gap_extend >= e){
-                                e = h[m-1] + _gap_open - _gap_extend;
-                                //tmp |= 0x4;
-                                tmp2 |= 0x8;
-                            }
-                            e += _gap_extend;
-                            //prev_hm_diff = curr_hm_diff;
-                            if(e > h[m]){
-                                tmp = INSERT_OP;
-                                h[m] = e;
-                            }
-                            tmp |= tmp2;
                             //h[m] = max(h[m], e);
                             FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 if(tid==11){
@@ -254,7 +250,8 @@ if(tid==11){
     }
 }
 if(tid==11){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, tmp2: %d\n", tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, tmp2);
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+        tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
 }
                             p[m] = h[m-1];
                             dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
@@ -554,7 +551,8 @@ if(tid==11){
     }
 }
 if(tid==11){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, ins_open: %d, ins_extend: %d\n", tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend);
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
+     tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend, del_open, del_extend);
 }
             /*if ((i == ref_pos) && (j == query_pos)) {
                 pos_score = h_matrix_wr[j*__X];

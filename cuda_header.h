@@ -204,50 +204,57 @@ if(tid==1){
 }
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
                             AlnOp tmp = MATCH_OP;
+                            char tmp2 = 0;
                             subScore = (rbase == gbase) ? _match : _mismatch;
                             int32_t curr_hm_diff = h[m] + _gap_open - _gap_extend;
-                            if(curr_hm_diff > f[m]){
+                            if(curr_hm_diff >= f[m]){
                                 f[m] = curr_hm_diff;
-                                tmp |= 0x4;
+                                //tmp |= 0x4;
+                                tmp2 |= 0x4;
                             }
                             f[m] += _gap_extend;
                             //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             h[m] = p[m] + subScore;//score if rbase is aligned to gbase
                             if(f[m] > h[m]){
-                                tmp = INSERT_OP;
+                                tmp = DELETE_OP;
                                 h[m] = f[m];
                             }
                             //h[m] = max(h[m], f[m]);
-                            if(0 > h[m]){
+                            if(0 >= h[m]){
                                 tmp = ZERO_OP;
                                 h[m] = 0;
                             }
                             //h[m] = max(h[m], 0);
                             //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
                             //e = max(h[m-1] + _gap_open, e + _gap_extend);
-                            if(h[m-1] + _gap_open - _gap_extend > e){
+                            int ins_open = h[m-1] + _gap_open;
+                            int ins_extend = e + _gap_extend;
+                            if(h[m-1] + _gap_open - _gap_extend >= e){
                                 e = h[m-1] + _gap_open - _gap_extend;
-                                tmp |= 0x4;
+                                //tmp |= 0x4;
+                                tmp2 |= 0x8;
                             }
                             e += _gap_extend;
                             //prev_hm_diff = curr_hm_diff;
                             if(e > h[m]){
-                                tmp = DELETE_OP;
+                                tmp = INSERT_OP;
                                 h[m] = e;
                             }
+                            tmp |= tmp2;
                             //h[m] = max(h[m], e);
                             FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
-if(tid==1){
+if(tid==11){
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
     //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
-    if(ii < 8 && jj < 8){
+    if(ii < 1 && jj < 1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", ii, jj, gbase, rbase);
         //printf("score: %d, i: %d, j: %d, ref: %d, query: %d\n", h[m], ii, jj, gbase, rbase);
-        printf("i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore);
+        printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d, ins_open: %d, ins_extend: %d\n", \
+            i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
 if(tid==11){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d\n", tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase);
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, tmp2: %d\n", tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, tmp2);
 }
                             p[m] = h[m-1];
                             dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
@@ -272,7 +279,52 @@ if(tid==11){
         printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 
 
+        i = 1;
+        int i_curr = ref_pos, j_curr = query_pos;
+        int i_steps = 0, j_steps = 0;
 
+        if(first){
+            i_curr = maxXY_y;
+            j_curr = maxXY_x;
+            out[i++] = maxHH;
+            out[i++] = i_curr;
+            out[i++] = j_curr;
+        }else{
+            out[i++] = 32767;
+        }
+printf("T%d dir_matrix: %p\n", tid, dir_matrix);
+        char state = dir_matrix[(i_curr*_tile_size+j_curr)*__X] % 4;
+
+        while (state != Z) {
+            if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+                break;
+            }
+            out[i++] = state;
+            if (state == M) {
+                int idx = ((i_curr-1)*_tile_size+j_curr-1)*__X;
+                //printf("T%d idx: %d\n", tid, idx);
+                state = (dir_matrix[idx] % 4);
+                i_curr--;
+                j_curr--;
+                i_steps++;
+                j_steps++;
+            }
+            else if (state == I) {
+                int idx = (i_curr*_tile_size+j_curr)*__X;
+                state = (dir_matrix[idx] & 0x8) ? M : I;
+                i_curr--;
+                i_steps++;
+            }
+            else if (state == D) {
+                int idx = (i_curr*_tile_size+j_curr)*__X;
+                state = (dir_matrix[idx] & 0x4) ? M : D;
+                j_curr--;
+                j_steps++;
+            }
+        };
+        out[0] = i - 1;
+    printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    tid, i_curr, j_curr, i_steps, j_steps);
 
 
         return;
@@ -345,13 +397,17 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int i = 0; i < query_len + 1; i++) {
         h_matrix_rd[i*__X] = 0;
         m_matrix_rd[i*__X] = 0;
-        i_matrix_rd[i*__X] = -INF;
-        d_matrix_rd[i*__X] = -INF;
+        //i_matrix_rd[i*__X] = -INF;
+        //d_matrix_rd[i*__X] = -INF;
+        i_matrix_rd[i*__X] = 0;
+        d_matrix_rd[i*__X] = 0;
        
         h_matrix_wr[i*__X] = 0;
         m_matrix_wr[i*__X] = 0;
-        i_matrix_wr[i*__X] = -INF;
-        d_matrix_wr[i*__X] = -INF;
+        //i_matrix_wr[i*__X] = -INF;
+        //d_matrix_wr[i*__X] = -INF;
+        i_matrix_wr[i*__X] = 0;
+        d_matrix_wr[i*__X] = 0;
     }
 
     //initialize the operands int he direction matrix for the first row and first
@@ -491,14 +547,14 @@ char ref_nt = ref_seq[(i-1)*__Y];
                 max_i = i;
                 max_j = j;
             }//*/
-if(tid==1){
-    if(i-1 < 50 && j-1 < 50){
+if(tid==11){
+    if(i-1 < 1 && j-1 < 1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", i-1, j-1, ref_nt, query_nt);
-        printf("i: %d, j: %d, score: %d, ref: %d, query: %d\n", i-1, j-1, tmp2, ref_nt, query_nt);
+        printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, m: %d, i: %d, d: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, m_matrix_wr[j*__X], i_matrix_wr[j*__X], d_matrix_wr[j*__X]);
     }
 }
 if(tid==11){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d\n", tid, i-1, j-1, tmp2, ref_nt, query_nt);
+    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, ins_open: %d, ins_extend: %d\n", tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend);
 }
             /*if ((i == ref_pos) && (j == query_pos)) {
                 pos_score = h_matrix_wr[j*__X];
@@ -588,8 +644,8 @@ if(tid==11){
         }
     };
     BT_states[0] = i - 1;
-    //printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
-    i_curr, j_curr, i_steps, j_steps);
+    printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    tid, i_curr, j_curr, i_steps, j_steps);
 
     /*std::queue<int> BT_states;
     int i_curr=ref_pos, j_curr=query_pos;

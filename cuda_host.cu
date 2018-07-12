@@ -151,9 +151,10 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
   int32_t *query_offsets_d = s->query_offsets_d;
   int32_t *ref_offsets_d = s->ref_offsets_d;
-  int query_batch_tasks_per_thread = (int)ceil((double)ref_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
-  int target_batch_tasks_per_thread = (int)ceil((double)query_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
-
+  int query_batch_tasks_per_thread = (int)ceil((double)query_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
+  int target_batch_tasks_per_thread = (int)ceil((double)ref_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
+printf("cuda_host: ref_curr: %d, query_curr: %d\n", ref_curr, query_curr);
+printf("query_tasks_per_thread: %d, target_tasks_per_thread: %d\n", query_batch_tasks_per_thread, target_batch_tasks_per_thread);
   cudaStream_t stream = s->stream->stream;
   cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
@@ -170,7 +171,7 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
     (uint32_t*)query_seqs_d, (uint32_t*)ref_seqs_d, \
     packed_query_seqs_d, packed_ref_seqs_d, \
     (uint32_t)query_batch_tasks_per_thread, (uint32_t)target_batch_tasks_per_thread, \
-    ref_curr / 4, query_curr / 4);
+    query_curr / 4, ref_curr / 4);
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 

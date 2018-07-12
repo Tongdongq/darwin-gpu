@@ -59,7 +59,6 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   const int *query_poss_d = s->query_poss_d;
   const char *reverses_d = s->reverses_d;
   const char *firsts_d = s->firsts_d;
-  int *outs_b, *outs_d = s->outs_d;
 
   int ref_curr = 0, query_curr = 0;
 
@@ -71,10 +70,14 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   query_poss_b = (int*)malloc(BATCH_SIZE * sizeof(int));
   reverses_b = (char*)malloc(BATCH_SIZE);
   firsts_b = (char*)malloc(BATCH_SIZE);
-  outs_b = (int*)malloc(BATCH_SIZE * sizeof(int) * 2 * tile_size);
 #ifdef GASAL
   int32_t *query_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
   int32_t *ref_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
+  short *outs_b, *outs_d = (short*)(s->outs_d);
+  outs_b = (short*)malloc(BATCH_SIZE * sizeof(short) * 2 * tile_size);
+#else
+  int *outs_b, *outs_d = s->outs_d;
+  outs_b = (int*)malloc(BATCH_SIZE * sizeof(int) * 2 * tile_size);
 #endif
 
   for(int t = 0; t < BATCH_SIZE; ++t){
@@ -104,8 +107,17 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
     ref_curr += tile_size;
     query_curr += tile_size;
 #else
-    memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
-    memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    if(reverses[t] == 1){
+        for(int j = 0; j < ref_lens[t]; ++j){
+            ref_seqs_b[t] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
+        }
+        for(int j = 0; j < query_lens[t]; ++j){
+            query_seqs_b[t] = query_seqs[t].c_str()[query_lens[t]-j-1];
+        }
+    }else{
+        memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
+        memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    }
     ref_curr += tile_size;
     query_curr += tile_size;
 #endif // COALESCE_BASES

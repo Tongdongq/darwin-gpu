@@ -54,9 +54,11 @@ enum states {Z, D, I, M};
 
 #define MAX_SEQ_LEN 320
 
-__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
-        uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch,
-        int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) {
+__global__ void gasal_pack_kernel( \
+    uint32_t* unpacked_query_batch, uint32_t* unpacked_target_batch, \
+    uint32_t *packed_query_batch, uint32_t* packed_target_batch, \
+    int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, \
+    uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) {
 
     int32_t i;
     const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -141,23 +143,24 @@ __global__ void gasal_local_kernel( \
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
         packed_query_batch += query_offsets[tid] >> 3;
         packed_target_batch += target_offsets[tid] >> 3;
-        printf("T%d query offset: %d, %p, ref offset: %d, %p\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch);
+        int32_t query_len = query_batch_lens[tid];
+        int32_t ref_len = target_batch_lens[tid];
+        printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
         printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
-        if(tid==2){
+        if(tid==23){
             printf("query: ");
-            for(i = 0; i < 20; ++i){
+            for(i = 0; i < query_len/8; ++i){
                 printf("%x ", packed_query_batch[i], packed_query_batch+i);
             }printf("\nref: ");
-            for(i = 0; i < 20; ++i){
+            for(i = 0; i < ref_len/8; ++i){
                 printf("%x ", packed_target_batch[i], packed_target_batch+i);
             }printf("\n");
+            printf("highest ref address: %p\n", packed_target_batch+ref_len/8);
         }
-        int32_t read_len = query_batch_lens[tid];
-        int32_t ref_len = target_batch_lens[tid];
         const char first = firsts[tid];
         dir_matrix += tid;
         if(ref_len == -1){return;}
-        uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
+        uint32_t query_batch_regs = (query_len >> 3) + (query_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
 if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
@@ -240,22 +243,28 @@ if(tid==2){
                             //e = max(h[m-1] + _gap_open, e + _gap_extend);
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
-                            if(h[m] >= maxHH){
-if(tid==2){
-    printf("new max: %d\n", h[m]);
+ 
+if(tid==1){
+    printf("T%d new max: %d, i: %d, j: %d\n", tid, h[m], ii, jj);
 }
-                                if(h[m] == maxHH){
-                                    if(ii < maxXY_y){
-                                        if(jj < maxXY_x){
-                                            maxXY_y = ii;
-                                            maxXY_x = jj;
-                                        }
-                                    }
-                                }else{
+                            if(h[m] == maxHH){  
+                                if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
                                     maxHH = h[m];
                                 }
+                                if(ii == maxXY_y){
+                                    if(jj > maxXY_x){
+                                        maxXY_y = ii;
+                                        maxXY_x = jj;
+                                        maxHH = h[m];
+                                    }
+                                }
+                            }
+                            if(h[m] > maxHH){
+                                maxXY_y = ii;
+                                maxXY_x = jj;
+                                maxHH = h[m]; 
                             }
 if(tid==2){
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
@@ -263,12 +272,12 @@ if(tid==2){
     if(ii < 1 && jj < 1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", ii, jj, gbase, rbase);
         //printf("score: %d, i: %d, j: %d, ref: %d, query: %d\n", h[m], ii, jj, gbase, rbase);
-        printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d, ins_open: %d, ins_extend: %d\n", \
+        //printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d, ins_open: %d, ins_extend: %d\n", \
             i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
 if(tid==2){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+    //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
         tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
 }
                             p[m] = h[m-1];
@@ -437,10 +446,16 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int j = 0; j < (query_len + 1)/2; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
-if(tid==2){
+if(tid==23){
     printf("query: ");
-    for(int i = 0; i < 20; ++i){
+    for(int i = 0; i < query_len; ++i){
+        if(i%8==0)printf(" ");
         printf("%d", query_seq[i*__Y]);
+    }printf("\n");
+    printf("ref: ");
+    for(int i = 0; i < ref_len; ++i){
+        if(i%8==0)printf(" ");
+        printf("%d", ref_seq[i*__Y]);
     }printf("\n");
 }
 printf("query_seq: %p\n", query_seq);
@@ -494,9 +509,6 @@ char ref_nt = ref_seq[(i-1)*__Y];
             m_matrix_wr[j*__X] = tmp2;
 
             int ins_open   = m_matrix_rd[j*__X] + _gap_open;
-if(tid==2 && i-1==18 && j-1==5){
-    printf("X m_rd: %d, ins_open: %d\n", m_matrix_rd[j*__X], ins_open);
-}
             int ins_extend = i_matrix_rd[j*__X] + _gap_extend;
             int del_open   = m_matrix_wr[(j-1)*__X] + _gap_open;
             int del_extend = d_matrix_wr[(j-1)*__X] + _gap_extend;
@@ -566,19 +578,24 @@ if(tid==2 && i-1==18 && j-1==5){
                 max_i = i;
                 max_j = j;
             }// 4% speedup*/
-            if (tmp2 > max_score) {
+if(tid==1){
+    if(tmp2 >= max_score){
+        printf("T%d tmp2: %d, max_score: %d, i: %d, j: %d\n", tid, tmp2, max_score, i-1, j-1);
+    }
+}
+            if (tmp2 >= max_score) {
                 max_score = tmp2;
                 max_i = i;
                 max_j = j;
             }//*/
-if(tid==2){
+if(tid==23){
     if(i-1 < 1 && j-1 < 1){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", i-1, j-1, ref_nt, query_nt);
-        printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, m: %d, i: %d, d: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, m_matrix_wr[j*__X], i_matrix_wr[j*__X], d_matrix_wr[j*__X]);
+        //printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, m: %d, i: %d, d: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, m_matrix_wr[j*__X], i_matrix_wr[j*__X], d_matrix_wr[j*__X]);
     }
 }
-if(tid==2){
-    printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
+if(tid==23){
+    //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
      tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend, del_open, del_extend);
 }
             /*if ((i == ref_pos) && (j == query_pos)) {
@@ -588,7 +605,7 @@ if(tid==2){
         }
     }
 
-    printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i, max_j);
+    printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i-1, max_j-1);
 
     int *BT_states = out;
     int i = 1;

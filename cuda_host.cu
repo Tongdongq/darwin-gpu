@@ -108,15 +108,15 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
     query_curr += tile_size;
 #else
     if(reverses[t] == 1){
-        for(int j = 0; j < ref_lens[t]; ++j){
-            ref_seqs_b[t] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
-        }
-        for(int j = 0; j < query_lens[t]; ++j){
-            query_seqs_b[t] = query_seqs[t].c_str()[query_lens[t]-j-1];
-        }
-    }else{
         memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
         memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    }else{
+        for(int j = 0; j < ref_lens[t]; ++j){
+            ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
+        }
+        for(int j = 0; j < query_lens[t]; ++j){
+            query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
+        }
     }
     ref_curr += tile_size;
     query_curr += tile_size;

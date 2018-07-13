@@ -19,7 +19,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "cuda_header.h"
 #include "gact.h"
 
-std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, std::vector<int> ref_lens, std::vector<int> query_lens, int *sub_mat, int gap_open, int gap_extend, std::vector<int> ref_poss, std::vector<int> query_poss, std::vector<char> reverses, std::vector<char> firsts, int early_terminate, int tile_size, GPU_storage *s, int num_blocks, int threads_per_block){
+std::vector<std::queue<int> > Align_Batch_GPU( \
+    std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, \
+    std::vector<int> ref_lens, std::vector<int> query_lens, \
+    int *sub_mat, int gap_open, int gap_extend, \
+    std::vector<int> ref_poss, std::vector<int> query_poss, \
+    std::vector<char> reverses, std::vector<char> firsts, \
+    int early_terminate, int tile_size, \
+    GPU_storage *s, int num_blocks, int threads_per_block){
 
   std::vector<std::queue<int> > result;
 
@@ -138,8 +145,17 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
   for(int t = 0; t < BATCH_SIZE; ++t){
     ref_offsets_b[t] = ref_curr;
     query_offsets_b[t] = query_curr;
-    memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
-    memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    if(reverses[t] == 1){
+        memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
+        memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    }else{
+        for(int j = 0; j < ref_lens[t]; ++j){
+            ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
+        }
+        for(int j = 0; j < query_lens[t]; ++j){
+            query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
+        }
+    }
     ref_curr += ref_lens[t];
     query_curr += query_lens[t];
     while(ref_curr % 8 != 0){
@@ -151,14 +167,14 @@ std::vector<std::queue<int> > Align_Batch_GPU(std::vector<std::string> ref_seqs,
       query_seqs_b[query_curr++] = 5;
     }
   }
-  for(int i = 0; i < 640; ++i){
+  /*for(int i = 0; i < 640; ++i){
     if(i%8==0)printf(" ");
     printf("%d", query_seqs_b[i]);
   }printf("\n");
   for(int i = 0; i < 640; ++i){
     if(i%8==0)printf(" ");
     printf("%d", ref_seqs_b[i]);
-  }printf("\n");
+  }printf("\n");//*/
   uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
   uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
   int32_t *query_offsets_d = s->query_offsets_d;
@@ -241,6 +257,7 @@ printf("query_tasks_per_thread: %d, target_tasks_per_thread: %d\n", query_batch_
 
   for(int t = 0; t < BATCH_SIZE; ++t){
     BT_states = std::queue<int>();
+printf("T%d has %d elements\n", t, (int)outs_b[off]);
     for(int i = 1; i <= outs_b[off]; ++i){
       BT_states.push(outs_b[i+off]);
     }

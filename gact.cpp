@@ -250,7 +250,7 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
         reads_seqs_p = &reads_seqs;
     }
 
-    printf("GACT_Batch, num_calls: %d, calls: %p\n", num_calls, &calls);
+    printf("GACT_Batch, num_calls: %d, calls: %p, complement: %d\n", num_calls, &calls, complement);
 
     //output of the function
     std::vector<std::string> aligned_ref_strs(num_calls);
@@ -412,7 +412,11 @@ io_lock.unlock();
 #endif
 
 #ifdef GPU
+#ifdef STABLE
         BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
+#else
+        int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
+#endif // STABLE
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
         BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
@@ -423,12 +427,31 @@ io_lock.unlock();
         time_gpu += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         t1 = std::chrono::high_resolution_clock::now();
 #endif
+        printf("100\n");
+
+
+    std::queue<int> q;
+    int off = 0;
+BT_statess.clear();
+    for(int t = 0; t < BATCH_SIZE; ++t){
+        q = std::queue<int>();
+        printf("T%d has %d elements\n", t, (int)out[off]);
+        for(int i = 1; i <= out[off]; ++i){
+            q.push(out[i+off]);
+        }
+        off += (2 * tile_size);
+        BT_statess.push_back(q);
+    }
+    printf("%d queues\n", BT_statess.size());
+
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
+        printf("150, callidx: %d\n", callidx);
             GACT_call *c = &(calls[callidx]);
-
+            printf("160\n");
             if(callidx == -1){continue;}
+        printf("200\n");
 
             int i = 0;
             int j = 0;

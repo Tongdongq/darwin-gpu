@@ -121,7 +121,7 @@ __global__ void gasal_local_kernel( \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
     int32_t *query_offsets, int32_t *target_offsets, \
     const int *query_poss, const int *ref_poss,
-    short *out,
+    int *out,
     const char *firsts, char *dir_matrix
     /*, \
     int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
@@ -136,6 +136,9 @@ __global__ void gasal_local_kernel( \
         int32_t maxXY_x = 0;
         int32_t maxXY_y = 0;
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+        int32_t query_len = query_batch_lens[tid];
+        int32_t ref_len = target_batch_lens[tid];
+        if(ref_len == -1){return;}
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
         const int row_len = _tile_size + 1;
@@ -144,8 +147,6 @@ __global__ void gasal_local_kernel( \
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
         packed_query_batch += query_offsets[tid] >> 3;
         packed_target_batch += target_offsets[tid] >> 3;
-        int32_t query_len = query_batch_lens[tid];
-        int32_t ref_len = target_batch_lens[tid];
         //printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
         //printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
         if(tid==14){
@@ -158,10 +159,9 @@ __global__ void gasal_local_kernel( \
             }printf("\n");
             printf("highest ref address: %p\n", packed_target_batch+ref_len/8);
         }//*/
-        short pos_score;        // score of last calculated corner
+        int pos_score;        // score of last calculated corner
         const char first = firsts[tid];
         dir_matrix += tid;
-        if(ref_len == -1){return;}
         uint32_t query_batch_regs = (query_len >> 3) + (query_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
@@ -632,7 +632,7 @@ if(first == 0){
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
 //#define STABLE
-#ifdef STABLE
+#if 0
     while (state != Z) {
 if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {

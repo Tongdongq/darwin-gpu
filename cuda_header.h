@@ -138,6 +138,7 @@ __global__ void gasal_local_kernel( \
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
+        const int row_len = _tile_size + 1;
         out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
@@ -145,18 +146,19 @@ __global__ void gasal_local_kernel( \
         packed_target_batch += target_offsets[tid] >> 3;
         int32_t query_len = query_batch_lens[tid];
         int32_t ref_len = target_batch_lens[tid];
-        printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
-        printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
-        if(tid==23){
+        //printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
+        //printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
+        if(tid==14){
             printf("query: ");
             for(i = 0; i < query_len/8; ++i){
-                printf("%x ", packed_query_batch[i], packed_query_batch+i);
+                printf("%08x ", packed_query_batch[i], packed_query_batch+i);
             }printf("\nref: ");
             for(i = 0; i < ref_len/8; ++i){
-                printf("%x ", packed_target_batch[i], packed_target_batch+i);
+                printf("%08x ", packed_target_batch[i], packed_target_batch+i);
             }printf("\n");
             printf("highest ref address: %p\n", packed_target_batch+ref_len/8);
-        }
+        }//*/
+        short pos_score;        // score of last calculated corner
         const char first = firsts[tid];
         dir_matrix += tid;
         if(ref_len == -1){return;}
@@ -203,7 +205,7 @@ if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mis
 if(tid==2){
     //printf("gbase: %d, rbase: %d\n", gbase, rbase);
     if((ii == 5 || ii == 6) && (jj == 2 | jj == 1)){
-        printf("i: %d, j: %d\n", ii, jj);
+        //printf("i: %d, j: %d\n", ii, jj);
     }
 }
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
@@ -231,8 +233,8 @@ if(tid==2){
                                 tmp = DELETE_OP;
                             }
 
-                            tmp += (ins_open >= ins_extend) ? 0x8 : 0;
-                            tmp += (del_open >= del_extend) ? 0x4 : 0;
+                            //tmp += (ins_open >= ins_extend) ? 0x8 : 0;
+                            //tmp += (del_open >= del_extend) ? 0x4 : 0;
 
                             h[m] = tmp2;
 
@@ -245,7 +247,7 @@ if(tid==2){
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
  
 if(tid==1){
-    printf("T%d new max: %d, i: %d, j: %d\n", tid, h[m], ii, jj);
+    //printf("T%d new max: %d, i: %d, j: %d\n", tid, h[m], ii, jj);
 }
                             if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
@@ -269,19 +271,27 @@ if(tid==1){
 if(tid==2){
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
     //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
-    if(ii < 1 && jj < 1){
+    if(ii > 200 && jj > 0 && query_pos == 26){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", ii, jj, gbase, rbase);
-        //printf("score: %d, i: %d, j: %d, ref: %d, query: %d\n", h[m], ii, jj, gbase, rbase);
+        //printf("X1 i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d\n", ii, jj, h[m], gbase, rbase, tmp);
         //printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d, ins_open: %d, ins_extend: %d\n", \
             i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
-if(tid==2){
-    //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
-        tid, i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
+if(tid==6){
+    //if(ii > 300 && jj > 200){
+        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+        tid, ii, jj, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
+    //}
 }
                             p[m] = h[m-1];
-                            dir_matrix[(ii*_tile_size+jj)*__X] = tmp;
+                            dir_matrix[(ii*row_len+jj)*__X] = tmp;
+                            if(ii == ref_pos-1 && jj == query_pos-1){
+if(first == 0){
+    printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h[m], query_pos, ref_pos);
+}
+                                pos_score = h[m];
+                            }
                         }
                         //----------save intermediate values------------
                         HD.x = h[m-1];
@@ -304,9 +314,9 @@ if(tid==2){
 
 
         i = 1;
-        int i_curr = ref_pos, j_curr = query_pos;
+        int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
-if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
+//if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
 
         if(first){
             i_curr = maxXY_y;
@@ -315,43 +325,44 @@ if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
             out[i++] = i_curr;
             out[i++] = j_curr;
         }else{
-            out[i++] = 32767;
+            //out[i++] = 32767;
+            out[i++] = pos_score;
+            printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
-printf("T%d dir_matrix: %p\n", tid, dir_matrix);
-        char state = dir_matrix[(i_curr*_tile_size+j_curr)*__X] % 4;
+//printf("T%d dir_matrix: %p\n", tid, dir_matrix);
+        char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
+        out[i++] = state;
         while (state != Z) {
-if(tid==2)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps);
+if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
             }
-            out[i++] = state;
             if (state == M) {
-                int idx = ((i_curr-1)*_tile_size+j_curr-1)*__X;
-                //printf("T%d idx: %d\n", tid, idx);
-                state = (dir_matrix[idx] % 4);
                 i_curr--;
                 j_curr--;
                 i_steps++;
                 j_steps++;
             }
             else if (state == I) {
-                int idx = (i_curr*_tile_size+j_curr)*__X;
-                state = (dir_matrix[idx] & 0x8) ? M : I;
                 i_curr--;
                 i_steps++;
             }
             else if (state == D) {
-                int idx = (i_curr*_tile_size+j_curr)*__X;
-                state = (dir_matrix[idx] & 0x4) ? M : D;
                 j_curr--;
                 j_steps++;
             }
+            int idx = (i_curr*row_len+j_curr)*__X;
+            state = dir_matrix[idx] % 4;
+            out[i++] = state;
         };
+        if(state == Z){
+            i--;
+        }
         out[0] = i - 1;
     printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);
-
+    //printf("T%d has %d elements\n", tid, i-1);
 
         return;
 } // end gasal_local_kernel()
@@ -377,7 +388,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     const int query_len = query_lens_d[tid];
     const int ref_pos = ref_poss_d[tid];
     const int query_pos = query_poss_d[tid];
-    printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
+    //printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
     //const char reverse = reverses_d[tid];
     const char first = firsts_d[tid];
     const int row_len = _tile_size + 1;
@@ -439,14 +450,14 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
 
     //initialize the operands int he direction matrix for the first row and first
     //column
-    for (int i = 0; i < (ref_len + 1)/2; i++) {
+    for (int i = 0; i < ref_len + 1; i++) {
         dir_matrix[(i*row_len)*__X] = ZERO_OP;
     }
 
-    for (int j = 0; j < (query_len + 1)/2; j++) {
+    for (int j = 0; j < query_len + 1; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
-if(tid==23){
+if(tid==14){
     printf("query: ");
     for(int i = 0; i < query_len; ++i){
         if(i%8==0)printf(" ");
@@ -458,7 +469,7 @@ if(tid==23){
         printf("%d", ref_seq[i*__Y]);
     }printf("\n");
 }
-printf("query_seq: %p\n", query_seq);
+//printf("query_seq: %p\n", query_seq);
     int max_score = 0;
     int max_i = 0;
     int max_j = 0;
@@ -551,28 +562,16 @@ char ref_nt = ref_seq[(i-1)*__Y];
             (dir_matrix)[(i*row_len+j)*__X] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             // 7% speedup*/
             h_matrix_wr[j*__X] = tmp2;
-if(tid==2 && i-1==18 && j-1==5){
-    printf("X h_wr: %d\n", h_matrix_wr[j*__X]);
+if(tid==2){
+    if(i-1 > 200 && j-1 > 0 && query_pos == 26){
+        //printf("X1 i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, tmp);
+    }
+    //printf("X h_wr: %d\n", h_matrix_wr[j*__X]);
 }
 
-#ifndef COMPRESS_DIR
-            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+            //tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+            //tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
-#else
-            int idx = (i*row_len+j);
-            char value = dir_matrix[idx/2*__X];
-            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-            if(idx & 0x1){
-                tmp <<= 4;
-                value &= 0x0f;
-            }else{
-                value &= 0xf0;
-            }
-            value |= tmp;//*/
-            dir_matrix[idx/2*__X] = value;
-#endif
             /*if (h_matrix_wr[j] >= max_score) {
                 max_score = h_matrix_wr[j];
                 max_i = i;
@@ -580,7 +579,7 @@ if(tid==2 && i-1==18 && j-1==5){
             }// 4% speedup*/
 if(tid==1){
     if(tmp2 >= max_score){
-        printf("T%d tmp2: %d, max_score: %d, i: %d, j: %d\n", tid, tmp2, max_score, i-1, j-1);
+        //printf("T%d tmp2: %d, max_score: %d, i: %d, j: %d\n", tid, tmp2, max_score, i-1, j-1);
     }
 }
             if (tmp2 >= max_score) {
@@ -594,12 +593,17 @@ if(tid==23){
         //printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, m: %d, i: %d, d: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, m_matrix_wr[j*__X], i_matrix_wr[j*__X], d_matrix_wr[j*__X]);
     }
 }
-if(tid==23){
-    //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
+if(tid==6){
+    //if(i-1 > 300 && j-1 > 200){
+        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n",\
      tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend, del_open, del_extend);
+    //}
 }
-            /*if ((i == ref_pos) && (j == query_pos)) {
-                pos_score = h_matrix_wr[j*__X];
+            if ((i == ref_pos) && (j == query_pos)) {
+                //pos_score = h_matrix_wr[j*__X];
+if(first == 0){
+    printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h_matrix_wr[j*__X], query_pos, ref_pos);
+}
             }//*/
 
         }
@@ -611,81 +615,76 @@ if(tid==23){
     int i = 1;
     int i_curr = ref_pos, j_curr = query_pos;
     int i_steps = 0, j_steps = 0;
-if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr-1, j_curr-1);
+//if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr-1, j_curr-1);
 
     if(first){
         i_curr = max_i;
         j_curr = max_j;
         BT_states[i++] = max_score;
-        BT_states[i++] = i_curr;
-        BT_states[i++] = j_curr;
+        BT_states[i++] = i_curr-1;
+        BT_states[i++] = j_curr-1;
     }else{
         //BT_states[i++] = pos_score;
         BT_states[i++] = h_matrix_wr[query_len*__X];
+        printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, h_matrix_wr[query_len*__X], query_pos, ref_pos);
     }
 
-#ifndef COMPRESS_DIR
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
-#else
-    int idx = (i_curr*row_len+j_curr);
-    char state = dir_matrix[idx/2*__X];
-    if(idx & 0x1){
-        state >>= 4;
-    }
-    state &= 0x3;
-#endif
 
+//#define STABLE
+#ifdef STABLE
     while (state != Z) {
-if(tid==2)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d\n", tid, state, i_curr-1, j_curr-1, i_steps, j_steps);
+if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
         BT_states[i++] = state;
         if (state == M) {
-#ifndef COMPRESS_DIR
             state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
-#else
-            idx = ((i_curr-1)*row_len+j_curr-1);
-            state = dir_matrix[idx/2*__X];
-            if(idx & 0x1){
-                state >>= 4;
-            }
-            state &= 0x3;
-#endif
             i_curr--;
             j_curr--;
             i_steps++;
             j_steps++;
         }
         else if (state == I) {
-#ifndef COMPRESS_DIR
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
-#else
-            idx = (i_curr*row_len+j_curr);
-            state = dir_matrix[idx/2*__X];
-            if(idx & 0x1){
-                state >>= 4;
-            }
-            state = (state & (2 << INSERT_OP)) ? M : I;
-#endif
             i_curr--;
             i_steps++;
         }
         else if (state == D) {
-#ifndef COMPRESS_DIR
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
-#else
-            idx = (i_curr*row_len+j_curr);
-            state = dir_matrix[idx/2*__X];
-            if(idx & 0x1){
-                state >>= 4;
-            }
-            state = (state & (2 << DELETE_OP)) ? M : D;
-#endif
             j_curr--;
             j_steps++;
         }
     };
+#else
+    BT_states[i++] = state;
+    while (state != Z) {
+if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr-1, j_curr-1, i_steps, j_steps, i-1);
+        if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+            break;
+        }
+        if (state == M) {
+            i_curr--;
+            j_curr--;
+            i_steps++;
+            j_steps++;
+        }
+        else if (state == I) {
+            i_curr--;
+            i_steps++;
+        }
+        else if (state == D) {
+            j_curr--;
+            j_steps++;
+        }
+        state = (dir_matrix[(i_curr*row_len+j_curr)*__X] % 4);
+        BT_states[i++] = state;
+    };
+    if(state == Z){
+        i--;
+    }
+#endif // STABLE
     BT_states[0] = i - 1;
     printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr-1, j_curr-1, i_steps, j_steps);

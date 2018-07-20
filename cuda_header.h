@@ -322,8 +322,8 @@ if(first == 0){
             i_curr = maxXY_y;
             j_curr = maxXY_x;
             out[i++] = maxHH;
-            out[i++] = i_curr;
-            out[i++] = j_curr;
+            out[i++] = i_curr+1;
+            out[i++] = j_curr+1;
         }else{
             //out[i++] = 32767;
             out[i++] = pos_score;
@@ -568,9 +568,10 @@ if(tid==2){
     }
     //printf("X h_wr: %d\n", h_matrix_wr[j*__X]);
 }
-
-            //tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-            //tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+#ifdef STABLE
+            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+#endif
             (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
             /*if (h_matrix_wr[j] >= max_score) {
                 max_score = h_matrix_wr[j];
@@ -621,8 +622,13 @@ if(first == 0){
         i_curr = max_i;
         j_curr = max_j;
         BT_states[i++] = max_score;
+#ifdef STABLE
+        BT_states[i++] = i_curr;
+        BT_states[i++] = j_curr;
+#else
         BT_states[i++] = i_curr-1;
         BT_states[i++] = j_curr-1;
+#endif
     }else{
         //BT_states[i++] = pos_score;
         BT_states[i++] = h_matrix_wr[query_len*__X];
@@ -631,8 +637,7 @@ if(first == 0){
 
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
-//#define STABLE
-#if 0
+#ifdef STABLE
     while (state != Z) {
 if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {

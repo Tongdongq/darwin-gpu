@@ -33,6 +33,8 @@ do
 		options="$options -D COMPRESS_DIR";;
 	"GASAL")
 		options="$options -D GASAL";;
+	"STABLE")
+		options="$options -D STABLE";;
 	"32")
 		maxregcount=32;;
 	"64")

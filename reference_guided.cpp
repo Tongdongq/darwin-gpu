@@ -350,13 +350,13 @@ void AlignReads (int start_read_num, int last_read_num)
 
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend);
-    
+printf("500\n");
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s, \
         match_score, mismatch_score, gap_open, gap_extend);
 #else // GPU
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, \
         match_score, mismatch_score, gap_open, gap_extend);
-
+printf("600\n");
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, \
         match_score, mismatch_score, gap_open, gap_extend);
 #endif // GPU

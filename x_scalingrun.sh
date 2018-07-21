@@ -10,20 +10,21 @@ function bench_and_compare {
 }
 
 function compare {
-	./generate.sh 4 2000 5000 4000 2
-	./convert.sh s1
+	sleep 4h
 	./z_compile.sh
-	./run.sh | grep "ref_id" | sort > tg
-	./z_compile.sh GPU CMAT CBASES 64
-	./run.sh 64 32 | grep "ref_id" | sort > ts
+	./run.sh 8 | grep "ref_id" | sort > tg
+	./z_compile.sh GPU CMAT CBASES 64 STREAM
+	./run.sh 8 48 64 | grep "ref_id" | sort > ts
+	diff tg ts
+	./run.sh 1 256 64 | grep "ref_id" | sort > ts
 	diff tg ts
 }
 
 function debug {
-	./z_compile.sh
-	./run.sh > tg
-	./z_compile.sh BATCH
-	./run.sh 1 1 > tb
+	./z_compile.sh GPU CMAT CBASES 64 STREAM STABLE
+	./run.sh 1 1 32 > tg
+	./z_compile.sh GPU CMAT CBASES 64 STREAM
+	./run.sh 1 1 32 > ts
 }
 
 debug

@@ -626,8 +626,10 @@ if(first == 0){
         BT_states[i++] = i_curr;
         BT_states[i++] = j_curr;
 #else
-        BT_states[i++] = i_curr-1;
-        BT_states[i++] = j_curr-1;
+        //BT_states[i++] = i_curr-1;
+        //BT_states[i++] = j_curr-1;
+        BT_states[i++] = i_curr;
+        BT_states[i++] = j_curr;
 #endif
     }else{
         //BT_states[i++] = pos_score;
@@ -639,11 +641,11 @@ if(first == 0){
 
 #ifdef STABLE
     while (state != Z) {
-if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
         BT_states[i++] = state;
+if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;
@@ -665,8 +667,8 @@ if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: 
 #else
     BT_states[i++] = state;
     while (state != Z) {
-if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr-1, j_curr-1, i_steps, j_steps, i-1);
-        if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
+        if ((i_steps >= _early_terminate-1) || (j_steps >= _early_terminate-1)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
         if (state == M) {

@@ -77,17 +77,20 @@ void GACT (char *ref_str, char *query_str, \
     int tile_size, int tile_overlap, \
     int ref_pos, int query_pos, int first_tile_score_threshold, \
     int ref_id, int query_id, bool complement, \
-    int match_score, int mismatch_score, int gap_open, int gap_extend);
+    int match_score, int mismatch_score, int gap_open, int gap_extend, \
+    std::ofstream &fout);
 
 // implemented in gact.cpp
 #ifdef GPU
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
   bool complement, int offset, GPU_storage *s, int match_score, \
-  int mismatch_score, int gap_open, int gap_extend);
+  int mismatch_score, int gap_open, int gap_extend, \
+  std::ofstream &fout);
 #else
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
   bool complement, int offset, \
-  int match_score, int mismatch_score, int gap_open, int gap_extend);
+  int match_score, int mismatch_score, int gap_open, int gap_extend, \
+  std::ofstream &fout);
 #endif
 
 // implemented in cuda_host.cu

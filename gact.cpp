@@ -48,7 +48,8 @@ void GACT (char *ref_str, char *query_str, \
     int ref_pos, int query_pos, int first_tile_score_threshold, \
     int ref_id, int query_id, bool complement, \
     int match_score, int mismatch_score, \
-    int gap_open, int gap_extend) {
+    int gap_open, int gap_extend, \
+    std::ofstream &fout) {
 
     std::queue<int> BT_states;
 
@@ -75,7 +76,6 @@ void GACT (char *ref_str, char *query_str, \
     bool first_tile = true;
    
     //printf("GACT: ref_pos: %d, query_pos: %d, ref_length: %d, query_length: %d\n", ref_pos, query_pos, ref_length, query_length);
-
 
     // not for the first tile
     while ((ref_pos > 0) && (query_pos > 0) && (((i > 0) && (j > 0)) || first_tile)) {
@@ -138,7 +138,6 @@ void GACT (char *ref_str, char *query_str, \
     bbpos = query_pos;
     ref_pos = rev_ref_pos;
     query_pos = rev_query_pos;
-    //printf("rev wave done, start with for wave\n");
     i = tile_size;
     j = tile_size;
     
@@ -213,23 +212,22 @@ void GACT (char *ref_str, char *query_str, \
             open = true;
         }
     }
-io_lock.lock();
-    //printf("End of GACT, callidx: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", callidx, abpos, ref_pos, bbpos, query_pos, total_score);
-    //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score);
-    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score, complement);
+/*io_lock.lock();
+    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", \
+    ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score, complement);
+io_lock.unlock();//*/
+    fout
+    << "ref_id: " << ref_id
+    << ", query_id: " << query_id
+    << ", ab: " << abpos
+    << ", ae: " << ref_pos
+    << ", bb: " << bbpos
+    << ", be: " << query_pos
+    << ", score: " << total_score
+    << ", comp: " << complement << std::endl;//*/
 
-//if(ref_id == 143 && query_id == 149){
-if(1){
-    printf("aligned strings: %d %d\n", aligned_query_str.length(), aligned_ref_str.length());
-    std::cout << aligned_query_str << std::endl;
-    std::cout << aligned_ref_str << std::endl;
-}
-    //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, comp: %d\n", ref_id, query_id, abpos, ref_pos, bbpos, query_pos, complement);
-io_lock.unlock();
     callidx++;
 
-    //std::cout << aligned_ref_str << std::endl << aligned_query_str << std::endl;
-    //std::cout << "First tile score: " <<  first_tile_score << " Total score: " << total_score << std::endl << std::endl;
 } // end GACT()
 
 #ifdef BATCH
@@ -237,12 +235,14 @@ io_lock.unlock();
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
     bool complement, int offset, GPU_storage *s, \
     int match_score, int mismatch_score, \
-    int gap_open, int gap_extend)
+    int gap_open, int gap_extend, \
+    std::ofstream &fout)
 #else
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
     bool complement, int offset, \
     int match_score, int mismatch_score, \
-    int gap_open, int gap_extend)
+    int gap_open, int gap_extend, \
+    std::ofstream &fout)
 #endif
 {
     int early_terminate = tile_size - tile_overlap;
@@ -362,11 +362,10 @@ if(c->ref_id == 98 && c->query_id == 3){
                             }
                         }
 io_lock.lock();
-                        //printf("End of GACT, ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos);
-                        printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
+    printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
 //if(c->ref_id == 143 && c->query_id == 149){
-if(1){
+/*if(1){
     // convert back to printable chars
     for(int i = 0; i < aligned_query_strs[callidx].length(); ++i){
         char convert[] = {'A', 'C', 'T', 'G'};
@@ -389,9 +388,18 @@ if(1){
     for(int i = 0; i < aligned_ref_strs[callidx].length(); ++i){
         printf("%c", aligned_ref_strs[callidx][i]);
     }printf("\n");
-}
-                        //printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, complement);
-io_lock.unlock();
+}//*/
+io_lock.unlock();//*/
+                        /*fout
+                        << "ref_id: " << c->ref_id
+                        << ", query_id: " << c->query_id
+                        << ", ab: " << c->ref_bpos
+                        << ", ae: " << ref_pos
+                        << ", bb: " << c->query_bpos
+                        << ", be: " << query_pos
+                        << ", score: " << total_score
+                        << ", comp: " << complement << std::endl;//*/
+
                         calls_done++;
                         assignments[t] = next_callidx;
                         if(next_callidx >= num_calls){
@@ -445,8 +453,7 @@ io_lock.unlock();
                 query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos, query_lens[t]);
                 reverses[t] = 0;
             }
-            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos);
-            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
+            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
         }   // end prepare batch
 
 #ifdef TIME
@@ -505,7 +512,7 @@ io_lock.unlock();
             int tile_score = BT_states.front();
             int first_tile_score;
             BT_states.pop();
-printf("T%d tile score: %d\n", t, tile_score);
+//printf("T%d tile score: %d\n", t, tile_score);
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
@@ -529,9 +536,6 @@ printf("T%d tile score: %d\n", t, tile_score);
                     first_tile = false;
                     int state = BT_states.front();
                     BT_states.pop();
-if(t==0){
-    //printf("T%d state: %d, i: %d, j: %d\n", t, state, i, j);
-}
                     if (state == M) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
@@ -600,19 +604,19 @@ if(t==0){
             }
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
-            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
+            //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 
 //printf("WARNING early terminate\n");
 //return;
     } // end main loop
-printf("400\n");
+
 #ifdef TIME
         t2 = std::chrono::high_resolution_clock::now();
         time_loop += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         printf("time_loop: %d ms, time_gpu: %d ms\n", time_loop, time_gpu);
 #endif
-printf("450\n");
+
 } // end GACT_Batch()
 #endif  // BATCH
 

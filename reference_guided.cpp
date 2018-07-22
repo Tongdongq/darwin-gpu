@@ -22,6 +22,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <map>
 #include <thread>
 #include <mutex>
+#include <fstream>
 #include "gact.h"
 #include "fasta.h"
 #include "ntcoding.h"
@@ -150,11 +151,18 @@ void PrintTileLocation (std::string read_name, \
 // each CPU thread aligns a batch of multiple reads against the SeedTable
 // the params start_read_num and last_read_num indicate which readIDs are to be aligned for each CPU thread
 #ifdef GPU
-void AlignReads (int start_read_num, int last_read_num, GPU_storage s)
+void AlignReads (int start_read_num, int last_read_num, int cpu_id, GPU_storage s)
 #else
-void AlignReads (int start_read_num, int last_read_num)
+void AlignReads (int start_read_num, int last_read_num, int cpu_id)
 #endif
 {
+    std::string filename = "darwin." + to_string(cpu_id) + ".out";
+    std::ofstream fout(filename);
+    if(fout.is_open() == false){
+        std::cerr << "ERROR cannot open output file" << std::endl;
+        return;
+    }
+
     uint32_t log_bin_size = (uint32_t) (log2(bin_size));
     int num_bins = 1 + (reference_length >> log_bin_size);
 
@@ -219,7 +227,8 @@ void AlignReads (int start_read_num, int last_read_num)
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
                 chr_id, k, false, \
-                match_score, mismatch_score, gap_open, gap_extend);//*/
+                match_score, mismatch_score, gap_open, gap_extend, \
+                fout);//*/
 #endif
         }   // end for all num_candidates_for seed hits
         //io_lock.unlock();
@@ -260,7 +269,8 @@ void AlignReads (int start_read_num, int last_read_num)
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
                 chr_id, k, true, \
-                match_score, mismatch_score, gap_open, gap_extend);//*/
+                match_score, mismatch_score, gap_open, gap_extend, \
+                fout);//*/
 #endif
         }   // end for all num_candidates_rev seed hits
         //io_lock.unlock();
@@ -349,16 +359,16 @@ void AlignReads (int start_read_num, int last_read_num)
 //#endif // GASAL
 
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
-        match_score, mismatch_score, gap_open, gap_extend);
-printf("500\n");
+        match_score, mismatch_score, gap_open, gap_extend, fout);
+
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, &s, \
-        match_score, mismatch_score, gap_open, gap_extend);
+        match_score, mismatch_score, gap_open, gap_extend, fout);
 #else // GPU
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, \
-        match_score, mismatch_score, gap_open, gap_extend);
-printf("600\n");
+        match_score, mismatch_score, gap_open, gap_extend, fout);
+
     GACT_Batch(GACT_calls_rev, total_calls_rev, true, total_calls_for, \
-        match_score, mismatch_score, gap_open, gap_extend);
+        match_score, mismatch_score, gap_open, gap_extend, fout);
 #endif // GPU
 
     gettimeofday(&finish, NULL);
@@ -373,6 +383,7 @@ printf("600\n");
     delete[] bin_count_offset_array;
     delete[] nz_bins_array;
     delete[] candidate_hit_offset;
+    fout.close();
 }
 
 int main(int argc, char *argv[]) {
@@ -552,9 +563,9 @@ int main(int argc, char *argv[]) {
     for (int k = 0; k < num_reads; k+=reads_per_thread, i++) {
         int last_read = (k+reads_per_thread > num_reads) ? num_reads : k+reads_per_thread;
 #ifdef GPU
-        align_threads.push_back(std::thread(AlignReads, k, last_read, s[i]));
+        align_threads.push_back(std::thread(AlignReads, k, last_read, i, s[i]));
 #else
-        align_threads.push_back(std::thread(AlignReads, k, last_read));
+        align_threads.push_back(std::thread(AlignReads, k, last_read, i));
 #endif
     }
     std::cout << align_threads.size() << " threads created\n";

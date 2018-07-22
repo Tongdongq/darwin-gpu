@@ -149,7 +149,7 @@ __global__ void gasal_local_kernel( \
         packed_target_batch += target_offsets[tid] >> 3;
         //printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
         //printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
-        if(tid==14){
+        /*if(tid==14){
             printf("query: ");
             for(i = 0; i < query_len/8; ++i){
                 printf("%08x ", packed_query_batch[i], packed_query_batch+i);
@@ -165,7 +165,7 @@ __global__ void gasal_local_kernel( \
         uint32_t query_batch_regs = (query_len >> 3) + (query_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
-if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
+//if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
         //-----arrays for saving intermediate values------
         short2 global[MAX_SEQ_LEN];
         int32_t h[9];
@@ -288,7 +288,7 @@ if(tid==6){
                             dir_matrix[(ii*row_len+jj)*__X] = tmp;
                             if(ii == ref_pos-1 && jj == query_pos-1){
 if(first == 0){
-    printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h[m], query_pos, ref_pos);
+    //printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h[m], query_pos, ref_pos);
 }
                                 pos_score = h[m];
                             }
@@ -310,7 +310,7 @@ if(first == 0){
         //query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
         //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
-        printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
+        //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 
 
         i = 1;
@@ -327,14 +327,14 @@ if(first == 0){
         }else{
             //out[i++] = 32767;
             out[i++] = pos_score;
-            printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
+            //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
         char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
         out[i++] = state;
         while (state != Z) {
-if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
+//if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
             }
@@ -360,8 +360,8 @@ if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: 
             i--;
         }
         out[0] = i - 1;
-    printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
-    tid, i_curr, j_curr, i_steps, j_steps);
+    /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);
 
         return;

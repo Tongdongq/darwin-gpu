@@ -171,11 +171,9 @@ int* Align_Batch_GPU( \
     ref_curr += ref_lens[t];
     query_curr += query_lens[t];
     while(ref_curr % 8 != 0){
-      printf("NOTE: appending ref, T%d\n", t);
       ref_seqs_b[ref_curr++] = 4;
     }
     while(query_curr % 8 != 0){
-      printf("NOTE: appending query, T%d\n", t);
       query_seqs_b[query_curr++] = 5;
     }
   }
@@ -193,8 +191,6 @@ int* Align_Batch_GPU( \
   int32_t *ref_offsets_d = s->ref_offsets_d;
   int query_batch_tasks_per_thread = (int)ceil((double)query_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
   int target_batch_tasks_per_thread = (int)ceil((double)ref_curr/(8*THREADS_PER_BLOCK*NUM_BLOCKS));
-printf("cuda_host: ref_curr: %d, query_curr: %d\n", ref_curr, query_curr);
-printf("query_tasks_per_thread: %d, target_tasks_per_thread: %d\n", query_batch_tasks_per_thread, target_batch_tasks_per_thread);
   cudaStream_t stream = s->stream->stream;
   cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
@@ -270,14 +266,12 @@ printf("query_tasks_per_thread: %d, target_tasks_per_thread: %d\n", query_batch_
 
   for(int t = 0; t < BATCH_SIZE; ++t){
     BT_states = std::queue<int>();
-printf("T%d has %d elements\n", t, (int)outs_b[off]);
     for(int i = 1; i <= outs_b[off]; ++i){
       BT_states.push(outs_b[i+off]);
     }
     off += (2 * tile_size);
     result.push_back(BT_states);
   }
-printf("cuda_host done, %d queues\n", result.size());
   return result;
 #else
   return outs_b;

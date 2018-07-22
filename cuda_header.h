@@ -335,7 +335,7 @@ if(first == 0){
         out[i++] = state;
         while (state != Z) {
 if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
-            if ((i_steps >= _early_terminate-1) || (j_steps >= _early_terminate-1)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+            if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
             }
             if (state == M) {
@@ -356,7 +356,7 @@ if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: 
             state = dir_matrix[idx] % 4;
             out[i++] = state;
         };
-        if(state == Z){
+        if(state == Z || i_steps >= _early_terminate || j_steps >= _early_terminate){
             i--;
         }
         out[0] = i - 1;

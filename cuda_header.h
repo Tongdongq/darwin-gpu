@@ -141,7 +141,7 @@ __global__ void gasal_local_kernel( \
         if(ref_len == -1){return;}
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
-        const int row_len = _tile_size + 1;
+        const int row_len = _tile_size + 2;
         out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
@@ -174,14 +174,14 @@ __global__ void gasal_local_kernel( \
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
         }
-        for (int i = 0; i < ref_len + 1; i++) {
+        dir_matrix += tid;
+        for (int i = 0; i < ref_len + 2; i++) {
             dir_matrix[(i*row_len)*__X] = ZERO_OP;
         }
-        for (int j = 0; j < query_len + 1; j++) {
+        for (int j = 0; j < query_len + 2; j++) {
             dir_matrix[j*__X] = ZERO_OP;
         }//*/
-        dir_matrix += (_tile_size+1) * (_tile_size+1);
-        dir_matrix += tid;
+        dir_matrix += (_tile_size+3)*__X;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
                     h[m] = 0;

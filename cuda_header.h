@@ -161,7 +161,6 @@ __global__ void gasal_local_kernel( \
         }//*/
         int pos_score;        // score of last calculated corner
         const char first = firsts[tid];
-        dir_matrix += tid;
         uint32_t query_batch_regs = (query_len >> 3) + (query_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
         uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
@@ -175,6 +174,14 @@ __global__ void gasal_local_kernel( \
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
         }
+        for (int i = 0; i < ref_len + 1; i++) {
+            dir_matrix[(i*row_len)*__X] = ZERO_OP;
+        }
+        for (int j = 0; j < query_len + 1; j++) {
+            dir_matrix[j*__X] = ZERO_OP;
+        }//*/
+        dir_matrix += (_tile_size+1) * (_tile_size+1);
+        dir_matrix += tid;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
                     h[m] = 0;
@@ -330,11 +337,13 @@ if(first == 0){
             //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
-        char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
+        unsigned int idx = i_curr*row_len + j_curr;
+        idx *= __X;
+        char state = dir_matrix[idx] % 4;
+        //char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
         out[i++] = state;
         while (state != Z) {
-//if(tid==2&&query_pos==26)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
             }

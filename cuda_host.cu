@@ -293,7 +293,7 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
 #ifdef GASAL
-  int size_matrices = (tile_size+1)*(tile_size+1);
+  int size_matrices = (tile_size+2)*(tile_size+2);
 #else // GASAL
 #ifndef COMPRESS_DIR
   int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);

@@ -361,7 +361,7 @@ if(c->ref_id == 98 && c->query_id == 3){
                                 open = true;
                             }
                         }
-io_lock.lock();
+/*io_lock.lock();
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
 //if(c->ref_id == 143 && c->query_id == 149){
@@ -388,9 +388,9 @@ io_lock.lock();
     for(int i = 0; i < aligned_ref_strs[callidx].length(); ++i){
         printf("%c", aligned_ref_strs[callidx][i]);
     }printf("\n");
-}//*/
+}
 io_lock.unlock();//*/
-                        /*fout
+                        fout
                         << "ref_id: " << c->ref_id
                         << ", query_id: " << c->query_id
                         << ", ab: " << c->ref_bpos

@@ -239,9 +239,11 @@ if(tid==2){
                                 tmp2 = f[m];
                                 tmp = DELETE_OP;
                             }
-
-                            //tmp += (ins_open >= ins_extend) ? 0x8 : 0;
-                            //tmp += (del_open >= del_extend) ? 0x4 : 0;
+#define OLD
+#ifdef OLD
+                            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+                            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+#endif
 
                             h[m] = tmp2;
 
@@ -275,24 +277,27 @@ if(tid==1){
                                 maxXY_x = jj;
                                 maxHH = h[m]; 
                             }
-if(tid==2){
+if(tid==0){
     //printf("score: %d, i: %d, j: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d\n", h[m], i*8+m-1, j*8+7-k/4, gbase, rbase, f[m], e, p[m]+subScore);
     //printf("maxHH: %d, f[m]: %d, e: %d, p[m]: %d\n", maxHH, f[m], e, p[m]+subScore);
-    if(ii > 200 && jj > 0 && query_pos == 26){
+    if(ii > 260 && jj > 80 && jj < 120){
         //printf("i: %d, j: %d, ref: %d, query: %d\n", ii, jj, gbase, rbase);
         //printf("X1 i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d\n", ii, jj, h[m], gbase, rbase, tmp);
         //printf("X i: %d, j: %d, score: %d, ref: %d, query: %d, f[m]: %d, e: %d, p[m]: %d, ins_open: %d, ins_extend: %d\n", \
             i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
-if(tid==6){
-    //if(ii > 300 && jj > 200){
-        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+if(tid==0){
+    if(ii > 260 && jj > 80 && jj < 120){
+        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
         tid, ii, jj, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
-    //}
+    }
 }
                             p[m] = h[m-1];
-                            dir_matrix[(ii*row_len+jj)*__X] = tmp;
+                            unsigned int idx = ii*row_len + jj;
+                            idx *= __X;
+                            dir_matrix[idx] = tmp;
+                            //dir_matrix[(ii*row_len+jj)*__X] = tmp;
                             if(ii == ref_pos-1 && jj == query_pos-1){
 if(first == 0){
     //printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h[m], query_pos, ref_pos);
@@ -317,8 +322,9 @@ if(first == 0){
         //query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
         //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
+if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
-
+}
 
         i = 1;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
@@ -337,11 +343,12 @@ if(first == 0){
             //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
-        unsigned int idx = i_curr*row_len + j_curr;
+        int idx = i_curr*row_len + j_curr;
         idx *= __X;
         char state = dir_matrix[idx] % 4;
         //char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
+#ifndef OLD
         out[i++] = state;
         while (state != Z) {
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
@@ -364,10 +371,42 @@ if(first == 0){
             int idx = (i_curr*row_len+j_curr)*__X;
             state = dir_matrix[idx] % 4;
             out[i++] = state;
+//if(maxHH==63&&maxXY_y==139&&maxXY_x==170)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d, %p\n", tid, state, i_curr, j_curr, i_steps, j_steps, i, dir_matrix+idx);
         };
         if(state == Z || i_steps >= _early_terminate || j_steps >= _early_terminate){
             i--;
+        }//*/
+#else
+    while (state != Z) {
+        if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+            break;
         }
+        out[i++] = state;
+if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr+1, j_curr+1, i_steps, j_steps, i);
+        if (state == M) {
+            int idx = ((i_curr-1)*row_len+j_curr-1);
+            idx *= __X;
+            state = dir_matrix[idx] % 4;//*/
+            //state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
+            i_curr--;
+            j_curr--;
+            i_steps++;
+            j_steps++;
+        }
+        else if (state == I) {
+            state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
+            i_curr--;
+            i_steps++;
+        }
+        else if (state == D) {
+            state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
+            j_curr--;
+            j_steps++;
+        }
+    };
+#endif
+
+
         out[0] = i - 1;
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
@@ -466,7 +505,7 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int j = 0; j < query_len + 1; j++) {
         dir_matrix[j*__X] = ZERO_OP;
     }
-if(tid==14){
+/*if(tid==14){
     printf("query: ");
     for(int i = 0; i < query_len; ++i){
         if(i%8==0)printf(" ");
@@ -477,7 +516,7 @@ if(tid==14){
         if(i%8==0)printf(" ");
         printf("%d", ref_seq[i*__Y]);
     }printf("\n");
-}
+}*/
 //printf("query_seq: %p\n", query_seq);
     int max_score = 0;
     int max_i = 0;
@@ -571,17 +610,19 @@ char ref_nt = ref_seq[(i-1)*__Y];
             (dir_matrix)[(i*row_len+j)*__X] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
             // 7% speedup*/
             h_matrix_wr[j*__X] = tmp2;
-if(tid==2){
-    if(i-1 > 200 && j-1 > 0 && query_pos == 26){
-        //printf("X1 i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d\n", i-1, j-1, tmp2, ref_nt, query_nt, tmp);
-    }
-    //printf("X h_wr: %d\n", h_matrix_wr[j*__X]);
-}
+
+
 #ifdef STABLE
             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 #endif
             (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
+if(tid==0){
+    if(i-1 > 260 && j-1 > 80 && j-1 < 120){
+        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+        tid, i-1, j-1, tmp2, ref_nt, query_nt, tmp, ins_open, ins_extend, del_open, del_extend);
+    }
+}
             /*if (h_matrix_wr[j] >= max_score) {
                 max_score = h_matrix_wr[j];
                 max_i = i;
@@ -612,14 +653,14 @@ if(tid==6){
             if ((i == ref_pos) && (j == query_pos)) {
                 //pos_score = h_matrix_wr[j*__X];
 if(first == 0){
-    printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h_matrix_wr[j*__X], query_pos, ref_pos);
+    //printf("T%d pos_score: %d, qpos: %d, rpos: %d\n", tid, h_matrix_wr[j*__X], query_pos, ref_pos);
 }
             }//*/
 
         }
     }
 
-    printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i-1, max_j-1);
+    //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, max_score, max_i-1, max_j-1);
 
     int *BT_states = out;
     int i = 1;
@@ -636,7 +677,7 @@ if(first == 0){
     }else{
         //BT_states[i++] = pos_score;
         BT_states[i++] = h_matrix_wr[query_len*__X];
-        printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, h_matrix_wr[query_len*__X], query_pos, ref_pos);
+        //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, h_matrix_wr[query_len*__X], query_pos, ref_pos);
     }
 
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
@@ -647,7 +688,7 @@ if(first == 0){
             break;
         }
         BT_states[i++] = state;
-if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
+if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;
@@ -669,7 +710,7 @@ if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j:
 #else
     BT_states[i++] = state;
     while (state != Z) {
-if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
+//if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
@@ -695,7 +736,7 @@ if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j:
     }
 #endif // STABLE
     BT_states[0] = i - 1;
-    printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
+    //printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr-1, j_curr-1, i_steps, j_steps);
 
     /*std::queue<int> BT_states;

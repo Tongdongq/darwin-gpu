@@ -192,7 +192,6 @@ void GACT (char *ref_str, char *query_str, \
                 i += 1;
             }
         }
-    
         ref_pos += (j);
         query_pos += (i);
         //printf("after tb: callidx: %d, ref_pos: %d, query_pos: %d, i: %d, j: %d, rev: 0\n", callidx, ref_pos, query_pos, i, j);
@@ -215,6 +214,9 @@ void GACT (char *ref_str, char *query_str, \
 /*io_lock.lock();
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", \
     ref_id, query_id, abpos, ref_pos, bbpos, query_pos, total_score, complement);
+    std::cout << "aligned strings:" << std::endl;
+    std::cout << aligned_query_str << std::endl;
+    std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
     fout
     << "ref_id: " << ref_id
@@ -365,7 +367,7 @@ if(c->ref_id == 98 && c->query_id == 3){
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
 //if(c->ref_id == 143 && c->query_id == 149){
-/*if(1){
+if(1){
     // convert back to printable chars
     for(int i = 0; i < aligned_query_strs[callidx].length(); ++i){
         char convert[] = {'A', 'C', 'T', 'G'};
@@ -453,7 +455,7 @@ io_lock.unlock();//*/
                 query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos, query_lens[t]);
                 reverses[t] = 0;
             }
-            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
+            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
         }   // end prepare batch
 
 #ifdef TIME
@@ -485,7 +487,7 @@ io_lock.unlock();//*/
         BT_statess.clear();
         for(int t = 0; t < BATCH_SIZE; ++t){
             q = std::queue<int>();
-            //printf("T%d has %d elements\n", t, (int)out[off]);
+            printf("T%d has %d elements\n", t, (int)out[off]);
             for(int i = 1; i <= out[off]; ++i){
                 q.push(out[i+off]);
             }
@@ -592,7 +594,6 @@ io_lock.unlock();//*/
                         i += 1;
                     }
                 }
-            
                 ref_pos += (j);
                 query_pos += (i);
             }   // end traceback
@@ -604,7 +605,7 @@ io_lock.unlock();//*/
             }
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
-            //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
+            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 
 //printf("WARNING early terminate\n");

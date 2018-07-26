@@ -263,6 +263,7 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
           break;
       }
       BT_states.push(state);
+//printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d\n", state, i_curr, j_curr, i_steps, j_steps);
       if (state == M) {
           state = (dir_matrix[i_curr-1][j_curr-1] % 4);
           i_curr--;

@@ -52,7 +52,7 @@ enum states {Z, D, I, M};
 
 #define INF (1 << 29)
 
-#define MAX_SEQ_LEN 320
+#define MAX_SEQ_LEN 324
 
 __global__ void gasal_pack_kernel( \
     uint32_t* unpacked_query_batch, uint32_t* unpacked_target_batch, \
@@ -126,13 +126,13 @@ __global__ void gasal_local_kernel( \
     /*, \
     int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end*/) {
         int32_t i, j, k, m, l;
-        int32_t e;
+        int32_t e, z;
         int32_t maxHH = 0;//initialize the maximum score to zero
         int32_t prev_maxHH = 0;
         int32_t subScore;
         int32_t ridx, gidx;
-        short2 HD;
-        short2 initHD = make_short2(0, 0);
+        short3 HD;
+        short3 initHD = make_short3(0, 0, 0);
         int32_t maxXY_x = 0;
         int32_t maxXY_y = 0;
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -141,7 +141,7 @@ __global__ void gasal_local_kernel( \
         if(ref_len == -1){return;}
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
-        const int row_len = _tile_size + 2;
+        const int row_len = _tile_size + 1;
         out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
@@ -166,27 +166,29 @@ __global__ void gasal_local_kernel( \
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
 //if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
         //-----arrays for saving intermediate values------
-        short2 global[MAX_SEQ_LEN];
+        short3 global[MAX_SEQ_LEN];
         int32_t h[9];
         int32_t f[9];
         int32_t p[9];
+        int32_t d[9];
         //--------------------------------------------
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
         }
         dir_matrix += tid;
-        for (int i = 0; i < ref_len + 2; i++) {
+        for (int i = 0; i < ref_len + 1; i++) {
             dir_matrix[(i*row_len)*__X] = ZERO_OP;
         }
-        for (int j = 0; j < query_len + 2; j++) {
+        for (int j = 0; j < query_len + 1; j++) {
             dir_matrix[j*__X] = ZERO_OP;
         }//*/
-        dir_matrix += (_tile_size+3)*__X;
+        //dir_matrix += (_tile_size+3)*__X;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
                     h[m] = 0;
                     f[m] = 0;
                     p[m] = 0;
+                    d[m] = 0;
             }
             register uint32_t gpac = packed_target_batch[i];//load 8 packed bases from target_batch sequence
             gidx = i << 3;
@@ -202,6 +204,7 @@ __global__ void gasal_local_kernel( \
                         HD = global[ridx];
                         h[0] = HD.x;
                         e = HD.y;
+                        z = HD.z;
                         //-------------------------------------------
                         int32_t prev_hm_diff = h[0] + _gap_open;
 #pragma unroll 8
@@ -216,15 +219,18 @@ if(tid==2){
     }
 }
                             //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-                            int ins_open = h[m-1] + _gap_open;
+                            //int ins_open = h[m-1] + _gap_open;
+                            int ins_open = z + _gap_open;
                             int ins_extend = e + _gap_extend;
-                            int del_open = h[m] + _gap_open;
+                            //int del_open = h[m] + _gap_open;
+                            int del_open = d[m] + _gap_open;
                             int del_extend = f[m] + _gap_extend;
                             AlnOp tmp = ZERO_OP;
                             int tmp2 = 0;
                             subScore = (rbase == gbase) ? _match : _mismatch;
                             int match = p[m] + subScore;
-
+                            z = match;
+                            d[m] = match;
                             if(match > tmp2){
                                 tmp2 = match;
                                 tmp = MATCH_OP;
@@ -243,7 +249,7 @@ if(tid==2){
                             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
                             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 #endif
-
+int hm = h[m];
                             h[m] = tmp2;
 
                             //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
@@ -292,8 +298,8 @@ if(tid==0){
                             dir_matrix[idx] = tmp;
 if(tid==0){
     if(ii > 240 && ii < 270 && jj > 110 && jj < 150){
-        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p\n", \
-        tid, ii, jj, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend, dir_matrix+idx);
+        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p, h[m]: %d\n", \
+        tid, ii, jj, h[m], gbase, rbase, tmp, match, ins_open, ins_extend, del_open, del_extend, dir_matrix+idx, hm);
     }
 }
                             //dir_matrix[(ii*row_len+jj)*__X] = tmp;
@@ -307,6 +313,7 @@ if(first == 0){
                         //----------save intermediate values------------
                         HD.x = h[m-1];
                         HD.y = e;
+                        HD.z = z;
                         global[ridx] = HD;
                         //---------------------------------------------
                         //maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
@@ -383,10 +390,12 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
             break;
         }
         out[i++] = state;
-if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr+1, j_curr+1, i_steps, j_steps, i);
+if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
             idx *= __X;
+            char t = dir_matrix[idx];
+if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = dir_matrix[idx] % 4;//*/
             //state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;
@@ -396,13 +405,16 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
         }
         else if (state == I) {
             int idx = (i_curr*row_len+j_curr)*__X;
-            char t = dir_matrix[(i_curr*row_len+j_curr)*__X];
+            char t = dir_matrix[idx];
 if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;
         }
         else if (state == D) {
+            int idx = (i_curr*row_len+j_curr)*__X;
+            char t = dir_matrix[idx];
+if(tid==0)printf("state D: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
             j_curr--;
             j_steps++;

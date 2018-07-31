@@ -239,7 +239,6 @@ if(tid==2){
                                 tmp2 = f[m];
                                 tmp = DELETE_OP;
                             }
-#define OLD
 #ifdef OLD
                             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
                             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
@@ -287,16 +286,16 @@ if(tid==0){
             i*8+m-1, j*8+7-k/4, h[m], gbase, rbase, f[m], e, p[m]+subScore, ins_open, ins_extend);
     }
 }
-if(tid==0){
-    if(ii > 260 && jj > 80 && jj < 120){
-        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d\n", \
-        tid, ii, jj, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend);
-    }
-}
                             p[m] = h[m-1];
-                            unsigned int idx = ii*row_len + jj;
+                            int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
+if(tid==0){
+    if(ii > 240 && ii < 270 && jj > 110 && jj < 150){
+        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p\n", \
+        tid, ii, jj, h[m], gbase, rbase, tmp, ins_open, ins_extend, del_open, del_extend, dir_matrix+idx);
+    }
+}
                             //dir_matrix[(ii*row_len+jj)*__X] = tmp;
                             if(ii == ref_pos-1 && jj == query_pos-1){
 if(first == 0){
@@ -323,7 +322,7 @@ if(first == 0){
         //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 if(1){
-        //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
+        printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
         i = 1;
@@ -350,6 +349,7 @@ if(1){
 
 #ifndef OLD
         out[i++] = state;
+if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr+1, j_curr+1, i_steps, j_steps, i);
         while (state != Z) {
             if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
                 break;
@@ -371,6 +371,7 @@ if(1){
             int idx = (i_curr*row_len+j_curr)*__X;
             state = dir_matrix[idx] % 4;
             out[i++] = state;
+if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr+1, j_curr+1, i_steps, j_steps, i);
 //if(maxHH==63&&maxXY_y==139&&maxXY_x==170)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d, %p\n", tid, state, i_curr, j_curr, i_steps, j_steps, i, dir_matrix+idx);
         };
         if(state == Z || i_steps >= _early_terminate || j_steps >= _early_terminate){
@@ -394,6 +395,9 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
             j_steps++;
         }
         else if (state == I) {
+            int idx = (i_curr*row_len+j_curr)*__X;
+            char t = dir_matrix[(i_curr*row_len+j_curr)*__X];
+if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;

@@ -298,7 +298,7 @@ if(tid==0){
                             dir_matrix[idx] = tmp;
 if(tid==0){
     if(ii > 240 && ii < 270 && jj > 110 && jj < 150){
-        printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p, h[m]: %d\n", \
+        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p, h[m]: %d\n", \
         tid, ii, jj, h[m], gbase, rbase, tmp, match, ins_open, ins_extend, del_open, del_extend, dir_matrix+idx, hm);
     }
 }
@@ -329,7 +329,7 @@ if(first == 0){
         //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 if(1){
-        printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
+        //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
         i = 1;
@@ -390,12 +390,12 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
             break;
         }
         out[i++] = state;
-if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
+//if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
             idx *= __X;
             char t = dir_matrix[idx];
-if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
+//if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = dir_matrix[idx] % 4;//*/
             //state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;
@@ -406,7 +406,7 @@ if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr,
         else if (state == I) {
             int idx = (i_curr*row_len+j_curr)*__X;
             char t = dir_matrix[idx];
-if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
+//if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;
@@ -414,7 +414,7 @@ if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr,
         else if (state == D) {
             int idx = (i_curr*row_len+j_curr)*__X;
             char t = dir_matrix[idx];
-if(tid==0)printf("state D: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
+//if(tid==0)printf("state D: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
             j_curr--;
             j_steps++;

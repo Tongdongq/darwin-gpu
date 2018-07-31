@@ -219,7 +219,12 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
 
           (dir_matrix)[i][j] += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
           (dir_matrix)[i][j] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-
+if(1){
+    if(i-1 > 240 && i-1 < 270 && j-1 > 110 && j-1 < 150){
+        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d\n", \
+        0, i-1, j-1, h_matrix_wr[j], ref_nt, query_nt, dir_matrix[i][j], m_matrix_wr[j], ins_open, ins_extend, del_open, del_extend);
+    }
+}
           if (h_matrix_wr[j] >= max_score) {
               max_score = h_matrix_wr[j];
               max_i = i;
@@ -257,31 +262,39 @@ std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
   first, max_i, max_j, i_curr, j_curr, max_score, pos_score);//*/
 
   int state = dir_matrix[i_curr][j_curr] % 4;
+  int i = 4;
 
-  while (state != Z) {
-      if ((i_steps >= early_terminate) || (j_steps >= early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
-          break;
-      }
-      BT_states.push(state);
-//printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d\n", state, i_curr, j_curr, i_steps, j_steps);
-      if (state == M) {
-          state = (dir_matrix[i_curr-1][j_curr-1] % 4);
-          i_curr--;
-          j_curr--;
-          i_steps++;
-          j_steps++;
-      }
-      else if (state == I) {
-          state = (dir_matrix[i_curr][j_curr] & (2 << INSERT_OP)) ? M : I;
-          i_curr--;
-          i_steps++;
-      }
-      else if (state == D) {
-          state = (dir_matrix[i_curr][j_curr] & (2 << DELETE_OP)) ? M : D;
-          j_curr--;
-          j_steps++;
-      }
-  }; 
+    while (state != Z) {
+        if ((i_steps >= early_terminate) || (j_steps >= early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
+            break;
+        }
+        BT_states.push(state);
+        i++;
+//printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr-1, j_curr-1, i_steps, j_steps, i);
+        if (state == M) {
+            char t = dir_matrix[i_curr-1][j_curr-1];
+//printf("state M: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
+            state = (dir_matrix[i_curr-1][j_curr-1] % 4);
+            i_curr--;
+            j_curr--;
+            i_steps++;
+            j_steps++;
+        }
+        else if (state == I) {
+            char t = dir_matrix[i_curr][j_curr];
+//printf("state I: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
+            state = (dir_matrix[i_curr][j_curr] & (2 << INSERT_OP)) ? M : I;
+            i_curr--;
+            i_steps++;
+        }
+        else if (state == D) {
+            char t = dir_matrix[i_curr][j_curr];
+//printf("state D: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
+            state = (dir_matrix[i_curr][j_curr] & (2 << DELETE_OP)) ? M : D;
+            j_curr--;
+            j_steps++;
+        }
+    };
 
   //printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n\n", \
     i_curr, j_curr, i_steps, j_steps);

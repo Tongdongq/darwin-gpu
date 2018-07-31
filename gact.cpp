@@ -455,7 +455,7 @@ io_lock.unlock();//*/
                 query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos, query_lens[t]);
                 reverses[t] = 0;
             }
-            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
+            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
         }   // end prepare batch
 
 #ifdef TIME
@@ -487,7 +487,7 @@ io_lock.unlock();//*/
         BT_statess.clear();
         for(int t = 0; t < BATCH_SIZE; ++t){
             q = std::queue<int>();
-            printf("T%d has %d elements\n", t, (int)out[off]);
+            //printf("T%d has %d elements\n", t, (int)out[off]);
             for(int i = 1; i <= out[off]; ++i){
                 q.push(out[i+off]);
             }
@@ -605,7 +605,7 @@ io_lock.unlock();//*/
             }
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
-            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
+            //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
 
 //printf("WARNING early terminate\n");

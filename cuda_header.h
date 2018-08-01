@@ -141,7 +141,7 @@ __global__ void gasal_local_kernel( \
         if(ref_len == -1){return;}
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
-        const int row_len = _tile_size + 1;
+        const int row_len = _tile_size + 2;
         out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
@@ -176,13 +176,13 @@ __global__ void gasal_local_kernel( \
             global[i] = initHD;
         }
         dir_matrix += tid;
-        for (int i = 0; i < ref_len + 1; i++) {
+        for (int i = 0; i < ref_len + 2; i++) {
             dir_matrix[(i*row_len)*__X] = ZERO_OP;
         }
-        for (int j = 0; j < query_len + 1; j++) {
+        for (int j = 0; j < query_len + 2; j++) {
             dir_matrix[j*__X] = ZERO_OP;
         }//*/
-        //dir_matrix += (_tile_size+3)*__X;
+        dir_matrix += (_tile_size+3)*__X;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
                     h[m] = 0;
@@ -394,7 +394,7 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
             idx *= __X;
-            char t = dir_matrix[idx];
+            //char t = dir_matrix[idx];
 //if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = dir_matrix[idx] % 4;//*/
             //state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
@@ -404,17 +404,18 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
             j_steps++;
         }
         else if (state == I) {
-            int idx = (i_curr*row_len+j_curr)*__X;
-            char t = dir_matrix[idx];
+            //int idx = (i_curr*row_len+j_curr)*__X;
+            //char t = dir_matrix[idx];
 //if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;
         }
         else if (state == D) {
-            int idx = (i_curr*row_len+j_curr)*__X;
-            char t = dir_matrix[idx];
+            //int idx = (i_curr*row_len+j_curr)*__X;
+            //char t = dir_matrix[idx];
 //if(tid==0)printf("state D: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
+            //state = (dir_matrix[idx] & (2 << DELETE_OP)) ? M : D;
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
             j_curr--;
             j_steps++;

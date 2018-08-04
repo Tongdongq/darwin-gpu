@@ -29,7 +29,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "seed_pos_table.h"
 #include "ConfigFile.h"
 
-#include <chrono>
+#include <condition_variable>
 
 #ifndef Z_COMPILE_USED
     #error "These files should be compiled using the z_compile.sh script"
@@ -103,6 +103,10 @@ SeedPosTable *sa;
 
 std::mutex io_lock;
 std::mutex convert_lock;        // for converting bases to 2b values
+std::mutex sync_mutex;
+std::mutex sync_mutex2;
+std::condition_variable cond_var;
+int t_done;
 
 std::map<char, char> rcmap;
 
@@ -316,8 +320,6 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         last = (cpu_id + 1) * M;
     }
 
-    printf("C%d, ref %d - %d\n", cpu_id, first, last);
-
     // change bases from chars to 2 bit values
     for(int i = first; i < last; ++i){
         convert_lock.lock();
@@ -356,7 +358,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     }else{
         last = (cpu_id + 1) * M;
     }
-    printf("C%d, read %d - %d\n", cpu_id, first, last);
+
     for(int i = first; i < last; ++i){
         convert_lock.lock();
         string old = reads_seqs[i];
@@ -412,9 +414,21 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     std::cout << "Time converting bases: " << mseconds <<" msec" << std::endl;
     io_lock.unlock();
 
-    while(t_done != 0){
-        
+    // synchronize all threads
+    std::unique_lock<std::mutex> sync_lock(sync_mutex2);
+    bool last_one = false;
+    sync_mutex.lock();
+    t_done++;
+    if(t_done == num_threads){
+        last_one = true;
+        cond_var.notify_all();
     }
+    sync_mutex.unlock();
+
+    if(last_one == false){
+        cond_var.wait(sync_lock, []{return t_done==num_threads;});
+    }
+    sync_lock.unlock();
 
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend, fout);
@@ -606,6 +620,9 @@ int main(int argc, char *argv[]) {
     uint64_t sum = 0;
     uint64_t total_num_seeds = 0;
     char nt;
+
+    // initialize shared variable for sync after base conversion
+    t_done = 0;
 
     // GPU init
 #ifdef GPU

@@ -40,7 +40,8 @@ extern std::vector<std::string> reads_seqs;
 extern std::vector<std::string> rev_reads_seqs;
 extern std::vector<long long int> reads_lengths;
 
-std::mutex io_lock;
+// not needed, since results are printed to a file
+//extern std::mutex io_lock;
 
 void GACT (char *ref_str, char *query_str, \
     int ref_length, int query_length, \

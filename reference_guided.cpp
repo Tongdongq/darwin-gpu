@@ -29,6 +29,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "seed_pos_table.h"
 #include "ConfigFile.h"
 
+#include <chrono>
+
 #ifndef Z_COMPILE_USED
     #error "These files should be compiled using the z_compile.sh script"
 #endif
@@ -99,7 +101,8 @@ std::map<uint32_t, int> bin_to_chr_id;
 
 SeedPosTable *sa;
 
-//std::mutex io_lock;
+std::mutex io_lock;
+std::mutex convert_lock;        // for converting bases to 2b values
 
 std::map<char, char> rcmap;
 
@@ -159,7 +162,9 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     std::string filename = "darwin." + to_string(cpu_id) + ".out";
     std::ofstream fout(filename);
     if(fout.is_open() == false){
+        io_lock.lock();
         std::cerr << "ERROR cannot open output file" << std::endl;
+        io_lock.unlock();
         return;
     }
 
@@ -276,15 +281,18 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         //io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
+    io_lock.lock();
     printf("num_candidates: %d %d\n", total_calls_for, total_calls_rev);
+    io_lock.unlock();
 
 #ifdef BATCH
     gettimeofday(&finish, NULL);
     long useconds = finish.tv_usec - begin.tv_usec;
     long seconds = finish.tv_sec - begin.tv_sec;
     long mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    io_lock.lock();
     std::cout << "Time finding seeds: " << mseconds <<" msec" << std::endl;
-
+    io_lock.unlock();
     /*for(int i = 0; i < total_calls_for; ++i){
         GACT_call *c = &(GACT_calls_for[i]);
         printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d +\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
@@ -297,66 +305,116 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     gettimeofday(&begin, NULL);
 
 #ifdef GPU
-//#ifdef GASAL
+
+    int N, M, first, last;
+    N = reference_seqs.size();
+    M = N / num_threads;
+    first = cpu_id * M;
+    if(cpu_id == num_threads - 1){
+        last = N;
+    }else{
+        last = (cpu_id + 1) * M;
+    }
+
+    printf("C%d, ref %d - %d\n", cpu_id, first, last);
+
     // change bases from chars to 2 bit values
-    for(int i = 0; i < reference_seqs.size(); ++i){
-        for(int j = 0; j < reference_seqs[i].length(); ++j){
-            switch(reference_seqs[i][j]){
+    for(int i = first; i < last; ++i){
+        convert_lock.lock();
+        string old = reference_seqs[i];
+        convert_lock.unlock();
+        for(int j = 0; j < old.length(); ++j){
+            switch(old[j]){
                 case 'A':
-                reference_seqs[i][j] = 0;
+                old[j] = 0;
                 break;
                 case 'C':
-                reference_seqs[i][j] = 1;
+                old[j] = 1;
                 break;
                 case 'T':
-                reference_seqs[i][j] = 2;
+                old[j] = 2;
                 break;
                 case 'G':
-                reference_seqs[i][j] = 3;
+                old[j] = 3;
             }
         }
+        convert_lock.lock();
+        reference_seqs[i] = old;
+        convert_lock.unlock();
     }
-    for(int i = 0; i < reads_seqs.size(); ++i){
-        for(int j = 0; j < reads_seqs[i].length(); ++j){
-            switch(reads_seqs[i][j]){
-                case 'A':
-                reads_seqs[i][j] = 0;
-                break;
-                case 'C':
-                reads_seqs[i][j] = 1;
-                break;
-                case 'T':
-                reads_seqs[i][j] = 2;
-                break;
-                case 'G':
-                reads_seqs[i][j] = 3;
-            }
-        }
+
+    // reads_seqs and rev_reads_seqs have the same number of reads
+    if(reads_seqs.size() != rev_reads_seqs.size()){
+        printf("ERROR reads and rev_reads have a different number of entries\n");
     }
-    for(int i = 0; i < rev_reads_seqs.size(); ++i){
-        for(int j = 0; j < rev_reads_seqs[i].length(); ++j){
-            switch(rev_reads_seqs[i][j]){
+
+    N = reads_seqs.size();
+    M = N / num_threads;
+    first = cpu_id * M;
+    if(cpu_id == num_threads - 1){
+        last = N;
+    }else{
+        last = (cpu_id + 1) * M;
+    }
+    printf("C%d, read %d - %d\n", cpu_id, first, last);
+    for(int i = first; i < last; ++i){
+        convert_lock.lock();
+        string old = reads_seqs[i];
+        convert_lock.unlock();
+        for(int j = 0; j < old.length(); ++j){
+            switch(old[j]){
                 case 'A':
-                rev_reads_seqs[i][j] = 0;
+                old[j] = 0;
                 break;
                 case 'C':
-                rev_reads_seqs[i][j] = 1;
+                old[j] = 1;
                 break;
                 case 'T':
-                rev_reads_seqs[i][j] = 2;
+                old[j] = 2;
                 break;
                 case 'G':
-                rev_reads_seqs[i][j] = 3;
+                old[j] = 3;
             }
         }
+        convert_lock.lock();
+        reads_seqs[i] = old;
+        convert_lock.unlock();
+    }
+    for(int i = first; i < last; ++i){
+        convert_lock.lock();
+        string old = rev_reads_seqs[i];
+        convert_lock.unlock();
+        for(int j = 0; j < old.length(); ++j){
+            switch(old[j]){
+                case 'A':
+                old[j] = 0;
+                break;
+                case 'C':
+                old[j] = 1;
+                break;
+                case 'T':
+                old[j] = 2;
+                break;
+                case 'G':
+                old[j] = 3;
+            }
+        }
+        convert_lock.lock();
+        rev_reads_seqs[i] = old;
+        convert_lock.unlock();
     }
     gettimeofday(&finish, NULL);
 
     useconds = finish.tv_usec - begin.tv_usec;
     seconds = finish.tv_sec - begin.tv_sec;
     mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    io_lock.lock();
     std::cout << "Time converting bases: " << mseconds <<" msec" << std::endl;
-//#endif // GASAL
+    io_lock.unlock();
+
+    while(t_done != 0){
+        
+    }
 
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend, fout);
@@ -376,8 +434,9 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     useconds = finish.tv_usec - begin.tv_usec;
     seconds = finish.tv_sec - begin.tv_sec;
     mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    io_lock.lock();
     std::cout << "Time GACT calling: " << mseconds <<" msec" << std::endl;
-
+    io_lock.unlock();
 #endif
 
     delete[] bin_count_offset_array;
@@ -460,6 +519,8 @@ int main(int argc, char *argv[]) {
 #else
     std::cout << "Running on cpu, CPU threads: " << num_threads << std::endl;
 #endif  // end BATCH
+
+    printf("Scores: match = %d, mismatch = %d, gap_open = %d, gap_extend = %d\n", match_score, mismatch_score, gap_open, gap_extend);
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;

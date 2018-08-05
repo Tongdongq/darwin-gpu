@@ -38,7 +38,7 @@ __constant__ int _early_terminate;
     #define __X 1
 #endif
 
-#ifdef COALESCE_BASES
+#if defined(COALESCE_BASES) || defined(NIGHTLY)
     #define __Y NTHREADS
 #else
     #define __Y 1
@@ -116,21 +116,39 @@ if(tid==0){
     maxXY_y = (maxHH < curr) ? gidx : maxXY_y;\
     maxHH = (maxHH < curr) ? curr : maxHH;
 
-__global__ void gasal_local_kernel( \
+
+#ifndef NIGHTLY
+    __global__ void gasal_local_kernel( \
     uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
     int32_t *query_offsets, int32_t *target_offsets, \
-    const int *query_poss, const int *ref_poss,
-    int *out,
-    const char *firsts, char *dir_matrix) {
+    const int *query_poss, const int *ref_poss, \
+    int *out, \
+    const char *firsts, char *dir_matrix)
+#else
+    __global__ void gasal_local_kernel( \
+    uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
+    const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
+    int32_t *query_offsets, int32_t *target_offsets, \
+    const int *query_poss, const int *ref_poss, \
+    int *out, \
+    const char *firsts, char *dir_matrix, \
+    char *local)
+#endif
+    {
         int32_t i, j, k, m, l;
         int32_t e, z;
         int32_t maxHH = 0;//initialize the maximum score to zero
         int32_t prev_maxHH = 0;
         int32_t subScore;
         int32_t ridx, gidx;
+#ifndef NIGHTLY
         short3 HD;
         short3 initHD = make_short3(0, 0, 0);
+#else
+        short4 HD;
+        short4 initHD = make_short4(0, 0, 0, 0);
+#endif
         int32_t maxXY_x = 0;
         int32_t maxXY_y = 0;
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -164,14 +182,23 @@ __global__ void gasal_local_kernel( \
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
 //if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
         //-----arrays for saving intermediate values------
+#ifndef NIGHTLY
         short3 global[MAX_SEQ_LEN];
         int32_t h[9];
         int32_t f[9];
         int32_t p[9];
         int32_t d[9];
+#else
+        int32_t *h = (int*)local + tid;
+        int32_t *f = h + 9*__Y;
+        int32_t *p = f + 9*__Y;
+        int32_t *d = p + 9*__Y;
+        short4 *global = ((short4*)(local + (4*4*9)*__Y)) + tid;
+#endif
+        //printf("T%d h: %p, f: %p, p: %p, d: %p, global: %p, d[8]: %p\n", tid, h, f, p, d, global, d+8*__X);
         //--------------------------------------------
         for (i = 0; i < MAX_SEQ_LEN; i++) {
-            global[i] = initHD;
+            global[i*__Y] = initHD;
         }
         dir_matrix += tid;
         for (int i = 0; i < ref_len + 2; i++) {
@@ -183,10 +210,10 @@ __global__ void gasal_local_kernel( \
         dir_matrix += (_tile_size+3)*__X;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
-                    h[m] = 0;
-                    f[m] = 0;
-                    p[m] = 0;
-                    d[m] = 0;
+                    h[m*__Y] = 0;
+                    f[m*__Y] = 0;
+                    p[m*__Y] = 0;
+                    d[m*__Y] = 0;
             }
             register uint32_t gpac = packed_target_batch[i];//load 8 packed bases from target_batch sequence
             gidx = i << 3;
@@ -199,7 +226,7 @@ __global__ void gasal_local_kernel( \
                         uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
 //if(tid==0){printf("base: %d\n", rbase);}
                         //-----load intermediate values--------------
-                        HD = global[ridx];
+                        HD = global[ridx*__Y];
                         h[0] = HD.x;
                         e = HD.y;
                         z = HD.z;
@@ -221,14 +248,14 @@ if(tid==2){
                             int ins_open = z + _gap_open;
                             int ins_extend = e + _gap_extend;
                             //int del_open = h[m] + _gap_open;
-                            int del_open = d[m] + _gap_open;
-                            int del_extend = f[m] + _gap_extend;
+                            int del_open = d[m*__Y] + _gap_open;
+                            int del_extend = f[m*__Y] + _gap_extend;
                             AlnOp tmp = ZERO_OP;
                             int tmp2 = 0;
                             subScore = (rbase == gbase) ? _match : _mismatch;
-                            int match = p[m] + subScore;
+                            int match = p[m*__Y] + subScore;
                             z = match;
-                            d[m] = match;
+                            d[m*__Y] = match;
                             if(match > tmp2){
                                 tmp2 = match;
                                 tmp = MATCH_OP;
@@ -238,17 +265,17 @@ if(tid==2){
                                 tmp2 = e;
                                 tmp = INSERT_OP;
                             }
-                            f[m] = max(del_open, del_extend);
-                            if(f[m] > tmp2){
-                                tmp2 = f[m];
+                            f[m*__Y] = max(del_open, del_extend);
+                            if(f[m*__Y] > tmp2){
+                                tmp2 = f[m*__Y];
                                 tmp = DELETE_OP;
                             }
 
                             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
                             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 
-int hm = h[m];
-                            h[m] = tmp2;
+//int hm = h[m];
+                            h[m*__Y] = tmp2;
 
                             //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             //h[m] = max(h[m], f[m]);
@@ -258,27 +285,27 @@ int hm = h[m];
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 
-                            if(h[m] == maxHH){  
+                            if(h[m*__Y] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
-                                    maxHH = h[m];
+                                    maxHH = h[m*__Y];
                                 }
                                 if(ii == maxXY_y){
                                     if(jj > maxXY_x){
                                         maxXY_y = ii;
                                         maxXY_x = jj;
-                                        maxHH = h[m];
+                                        maxHH = h[m*__Y];
                                     }
                                 }
                             }
-                            if(h[m] > maxHH){
+                            if(h[m*__Y] > maxHH){
                                 maxXY_y = ii;
                                 maxXY_x = jj;
-                                maxHH = h[m]; 
+                                maxHH = h[m*__Y]; 
                             }
 
-                            p[m] = h[m-1];
+                            p[m*__Y] = h[(m-1)*__Y];
                             int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
@@ -290,14 +317,14 @@ if(tid==0){
 }
                             //dir_matrix[(ii*row_len+jj)*__X] = tmp;
                             if(ii == ref_pos-1 && jj == query_pos-1){
-                                pos_score = h[m];
+                                pos_score = h[m*__Y];
                             }
                         }
                         //----------save intermediate values------------
-                        HD.x = h[m-1];
+                        HD.x = h[(m-1)*__Y];
                         HD.y = e;
                         HD.z = z;
-                        global[ridx] = HD;
+                        global[ridx*__Y] = HD;
                         //---------------------------------------------
                         //maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
                         //prev_maxHH = max(maxHH, prev_maxHH);

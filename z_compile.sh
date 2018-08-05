@@ -33,6 +33,8 @@ do
 		options="$options -D COMPRESS_DIR";;
 	"GASAL")
 		options="$options -D GASAL";;
+	"N")
+		options="$options -D NIGHTLY";;
 	"STABLE")
 		options="$options -D STABLE";;
 	"32")

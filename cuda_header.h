@@ -184,17 +184,13 @@ if(tid==0){
         //-----arrays for saving intermediate values------
 #ifndef NIGHTLY
         short3 global[MAX_SEQ_LEN];
+#else
+        short4 *global = (short4*)local + tid;
+#endif
         int32_t h[9];
         int32_t f[9];
         int32_t p[9];
         int32_t d[9];
-#else
-        int32_t *h = (int*)local + tid;
-        int32_t *f = h + 9*__Y;
-        int32_t *p = f + 9*__Y;
-        int32_t *d = p + 9*__Y;
-        short4 *global = ((short4*)(local + (4*4*9)*__Y)) + tid;
-#endif
         //printf("T%d h: %p, f: %p, p: %p, d: %p, global: %p, d[8]: %p\n", tid, h, f, p, d, global, d+8*__X);
         //--------------------------------------------
         for (i = 0; i < MAX_SEQ_LEN; i++) {
@@ -209,11 +205,12 @@ if(tid==0){
         }//*/
         dir_matrix += (_tile_size+3)*__X;
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
+//#pragma unroll 9
             for (m = 0; m < 9; m++) {
-                    h[m*__Y] = 0;
-                    f[m*__Y] = 0;
-                    p[m*__Y] = 0;
-                    d[m*__Y] = 0;
+                    h[m] = 0;
+                    f[m] = 0;
+                    p[m] = 0;
+                    d[m] = 0;
             }
             register uint32_t gpac = packed_target_batch[i];//load 8 packed bases from target_batch sequence
             gidx = i << 3;
@@ -248,14 +245,14 @@ if(tid==2){
                             int ins_open = z + _gap_open;
                             int ins_extend = e + _gap_extend;
                             //int del_open = h[m] + _gap_open;
-                            int del_open = d[m*__Y] + _gap_open;
-                            int del_extend = f[m*__Y] + _gap_extend;
+                            int del_open = d[m] + _gap_open;
+                            int del_extend = f[m] + _gap_extend;
                             AlnOp tmp = ZERO_OP;
                             int tmp2 = 0;
                             subScore = (rbase == gbase) ? _match : _mismatch;
-                            int match = p[m*__Y] + subScore;
+                            int match = p[m] + subScore;
                             z = match;
-                            d[m*__Y] = match;
+                            d[m] = match;
                             if(match > tmp2){
                                 tmp2 = match;
                                 tmp = MATCH_OP;
@@ -265,9 +262,9 @@ if(tid==2){
                                 tmp2 = e;
                                 tmp = INSERT_OP;
                             }
-                            f[m*__Y] = max(del_open, del_extend);
-                            if(f[m*__Y] > tmp2){
-                                tmp2 = f[m*__Y];
+                            f[m] = max(del_open, del_extend);
+                            if(f[m] > tmp2){
+                                tmp2 = f[m];
                                 tmp = DELETE_OP;
                             }
 
@@ -275,7 +272,7 @@ if(tid==2){
                             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 
 //int hm = h[m];
-                            h[m*__Y] = tmp2;
+                            h[m] = tmp2;
 
                             //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
                             //h[m] = max(h[m], f[m]);
@@ -285,27 +282,27 @@ if(tid==2){
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 
-                            if(h[m*__Y] == maxHH){  
+                            if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
-                                    maxHH = h[m*__Y];
+                                    maxHH = h[m];
                                 }
                                 if(ii == maxXY_y){
                                     if(jj > maxXY_x){
                                         maxXY_y = ii;
                                         maxXY_x = jj;
-                                        maxHH = h[m*__Y];
+                                        maxHH = h[m];
                                     }
                                 }
                             }
-                            if(h[m*__Y] > maxHH){
+                            if(h[m] > maxHH){
                                 maxXY_y = ii;
                                 maxXY_x = jj;
-                                maxHH = h[m*__Y]; 
+                                maxHH = h[m]; 
                             }
 
-                            p[m*__Y] = h[(m-1)*__Y];
+                            p[m] = h[m-1];
                             int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
@@ -317,11 +314,11 @@ if(tid==0){
 }
                             //dir_matrix[(ii*row_len+jj)*__X] = tmp;
                             if(ii == ref_pos-1 && jj == query_pos-1){
-                                pos_score = h[m*__Y];
+                                pos_score = h[m];
                             }
                         }
                         //----------save intermediate values------------
-                        HD.x = h[(m-1)*__Y];
+                        HD.x = h[m-1];
                         HD.y = e;
                         HD.z = z;
                         global[ridx*__Y] = HD;

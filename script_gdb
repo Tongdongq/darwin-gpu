@@ -9,8 +9,13 @@
 #break cuda_device.cu:1965
 #break cuda_device.cu:122
 #break align.c:1029 if c==169 && y=87
-#break GASAL/gasal_kernels_inl.h:261
-run sacCer3.fa reads.fa 1 4
+#set breakpoint pending on
+#watch *0xb04b40433
+#break cuda_header.h:326 if (maxXY_y == 154 && maxXY_x == 171)
+#break cuda_header.h:367 if (tid == 1075 && maxXY_y == 154 && maxXY_x == 171 && i_steps == 160)
+
+#run sacCer3.fa reads.fa 1 4
+run reference.fasta reads.fasta 1 64 64
 
 set $p = 17
 

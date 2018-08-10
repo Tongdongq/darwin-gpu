@@ -33,11 +33,11 @@ fi
 sleep 1
 
 METRICS="--metrics "
-#M0=" gld_transactions,gst_transactions,gld_efficiency,gst_efficiency,gst_throughput,gld_throughput"
+M0="gld_transactions,gst_transactions,gld_efficiency,gst_efficiency,gst_throughput,gld_throughput"
 #M1=",gst_requested_throughput,gld_requested_throughput"
 #M2=",l2_read_transactions,l2_write_transactions"
-M3=""
-M4="sm_efficiency,achieved_occupancy"
+#M3=""
+M4=",sm_efficiency,achieved_occupancy"
 
 #EVENTS="--events"
 #E0=" inst_executed,gld_inst_8bit,gld_inst_32bit"

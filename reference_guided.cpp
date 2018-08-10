@@ -207,7 +207,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         //io_lock.lock();
         //std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
-            //PrintTileLocation(reads_descrips[k][0], \
+            PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -231,7 +231,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_for[idx].first = 1;
             GACT_calls_for[idx].reverse = 1;
 #else   // perform GACT immediately
-            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
+            /*GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
@@ -249,7 +249,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         //io_lock.lock();
         //std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
-            //PrintTileLocation(reads_descrips[k][0], \
+            PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '-');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -273,7 +273,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_rev[idx].first = 1;
             GACT_calls_rev[idx].reverse = 1;
 #else   // perform GACT immediately
-            GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
+            /*GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \

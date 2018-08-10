@@ -21,6 +21,8 @@ using namespace std;
 
 #define nz_bins 25000000
 
+#define W 1
+
 class SeedPosTable {
     private:
         uint32_t index_table_size_;

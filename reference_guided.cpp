@@ -148,6 +148,7 @@ void PrintTileLocation (std::string read_name, \
     uint32_t    start_bin = chr_id_to_start_bin[chr_id];
 
     std::cout << \
+    "GACT_call " << \
     read_name << " " << \
     chr << " " << \
     candidate_hit - (start_bin*bin_size) << " " << \

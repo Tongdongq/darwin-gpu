@@ -131,7 +131,8 @@ uint32_t* SeqToTwoBit (char* seq, uint32_t seq_len) {
 }
 
 static inline uint32_t Min_Window (uint32_t* window, int size) {
-    uint32_t min = (1 << 31) - 1;
+    //uint32_t min = (1 << 31) - 1;
+    uint32_t min = UINT32_MAX;
     for (int i = 0; i < size; i++) {
         if (min > window[i]) {
             min = window[i];

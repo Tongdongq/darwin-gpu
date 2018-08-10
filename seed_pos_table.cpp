@@ -50,7 +50,7 @@ SeedPosTable::SeedPosTable(char* ref_str, uint32_t ref_length, std::string shape
     uint32_t* r_2bit = SeqToTwoBit(ref_str, ref_length);
 
     int k = kmer_size;
-    int w = 5;
+    int w = W;
     std::pair <uint64_t*, uint32_t> m_n;
     m_n = TwoBitToMinimizers(r_2bit, rlen_2bit, k, w); 
     uint64_t* minimizers = m_n.first;
@@ -98,7 +98,7 @@ int SeedPosTable::DSOFT(char* query, uint32_t query_length, int N, int threshold
     uint32_t* q_2bit = SeqToTwoBit(query, query_length);
 
     int k = kmer_size_;
-    int w = 5;
+    int w = W;
     std::pair <uint64_t*, uint32_t> m_n;
     m_n = QTwoBitToMinimizers(q_2bit, FIND_MIN(qlen_2bit, 1+N/16), k, w); 
     uint64_t* minimizers = m_n.first;

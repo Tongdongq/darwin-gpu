@@ -536,6 +536,7 @@ int main(int argc, char *argv[]) {
 #endif  // end BATCH
 
     printf("Scores: match = %d, mismatch = %d, gap_open = %d, gap_extend = %d\n", match_score, mismatch_score, gap_open, gap_extend);
+    printf("Minimizer window size: %d\n", W);
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;

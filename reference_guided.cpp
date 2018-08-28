@@ -208,7 +208,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         //io_lock.lock();
         //std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
-            PrintTileLocation(reads_descrips[k][0], \
+            //PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '+');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -250,7 +250,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         //io_lock.lock();
         //std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
-            PrintTileLocation(reads_descrips[k][0], \
+            //PrintTileLocation(reads_descrips[k][0], \
                 (candidate_hit_offset[i] >> 32), \
                 ((candidate_hit_offset[i] << 32) >> 32), '-');
             int ref_pos = (candidate_hit_offset[i] >> 32);
@@ -298,13 +298,13 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     io_lock.lock();
     std::cout << "Time finding seeds: " << mseconds <<" msec" << std::endl;
     io_lock.unlock();
-    /*for(int i = 0; i < total_calls_for; ++i){
+    for(int i = 0; i < total_calls_for; ++i){
         GACT_call *c = &(GACT_calls_for[i]);
-        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d +\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
+        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d +\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
     }//*/
-    /*for(int i = 0; i < total_calls_rev; ++i){
+    for(int i = 0; i < total_calls_rev; ++i){
         GACT_call *c = &(GACT_calls_rev[i]);
-        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d -\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos);
+        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d -\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
     }//*/
 
     gettimeofday(&begin, NULL);
@@ -560,7 +560,7 @@ int main(int argc, char *argv[]) {
             reference_string += std::string((bin_size - (reference_seqs[i].length() % bin_size)), 'N');
             bin_to_chr_id[curr_bin++] = i;
         }
-        //std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
+        std::cout << i << " " << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
     }
 
     reference_length = reference_string.length();
@@ -583,6 +583,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_reads; i++) {
         std::string rev_read = RevComp(reads_seqs[i]);
         rev_reads_seqs.push_back(rev_read);
+        std::cout << "Read " << i << ", length: " << rev_read.size() << std::endl;
     }
 
     std::cout << "Number of reads: " << num_reads << std::endl;

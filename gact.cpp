@@ -345,6 +345,7 @@ int batch_no = 0;
                     }
                 }
             }else{
+printf("ref_pos: %d, ref_length: %d\n", ref_pos, ref_length);
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
                         int total_score = 0;
@@ -416,7 +417,7 @@ io_lock.unlock();//*/
                 }
             }
 
-            if(next_call == 1){                
+            if(next_call == 1){
                 callidx = next_callidx++;
                 c = &(calls[callidx]);
                 ref_pos = c->ref_pos;
@@ -429,11 +430,17 @@ io_lock.unlock();//*/
                     c->ref_bpos = ref_pos;
                     c->query_bpos = query_pos;
                 }
+printf("next_call, id: %d %d, pos: %d, length: %d\n", c->ref_id, c->query_id, ref_pos, ref_length);
             }
 
             // prepare batch
             // if first tile
             firsts_b[t] = c->first;
+
+if(ref_pos < 0 || query_pos < 0){
+    printf("ERROR negative pos: %d, %d\n", ref_pos, query_pos);
+}
+printf("pos: %d %d, id: %d %d, rev: %d\n", ref_pos, query_pos, c->ref_id, c->query_id, c->reverse);
 
             // if reverse
             if(c->reverse == 1){

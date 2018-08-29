@@ -339,36 +339,7 @@ if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
-
-        out[0] = ref_pos;
-        out[1] = query_pos;
-        out[2] = maxXY_y;
-        out[3] = maxXY_x;
-        out[4] = maxHH;
-        out[5] = pos_score;
-        out[6] = row_len;
-
-}
-
-
-__global__ void kernel(int* out, char* dir_matrix, const char* firsts)
-{
-
-        const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
-        out += (_tile_size * 2 * tid);
-        dir_matrix += tid;
-        dir_matrix += (_tile_size+3)*__X;
-        const char first = firsts[tid];
-        int ref_pos = out[0];
-        int query_pos = out[1];
-        int maxXY_y = out[2];
-        int maxXY_x = out[3];
-        int maxHH = out[4];
-        int pos_score = out[5];
-        int row_len = out[6];
-
-
-        int i = 1;
+        i = 1;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
 //if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);

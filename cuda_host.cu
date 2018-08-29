@@ -13,7 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vector>
 #include <queue>
 #include <string>
-
+#include <sys/time.h>
 #ifdef GPU
 
 #include "cuda_header.h"
@@ -211,6 +211,11 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
+  static int total_matfill = 0, total_tb = 0;    // note: in ms
+  static int count = 0;
+  struct timeval t1, t2;
+  gettimeofday(&t1,NULL);
+
 #ifndef NIGHTLY
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
@@ -230,6 +235,24 @@ int* Align_Batch_GPU( \
 #endif
 
   cudaSafeCall(cudaStreamSynchronize(stream));
+
+  gettimeofday(&t2,NULL);
+  int diff = (t2.tv_usec/1000 + 1000 * t2.tv_sec) - (t1.tv_usec/1000 + 1000 * t1.tv_sec);
+  total_matfill += diff;
+
+  gettimeofday(&t1,NULL);
+  kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>(outs_d, (char*)(s->matrices_d), firsts_d);
+  cudaSafeCall(cudaStreamSynchronize(stream));
+
+gettimeofday(&t2,NULL);
+  diff = (t2.tv_usec/1000 + 1000 * t2.tv_sec) - (t1.tv_usec/1000 + 1000 * t1.tv_sec);
+  total_tb += diff;
+
+  if(count++ > 250){
+    printf("XXX total_matfill: %d, total_tb: %d\n", total_matfill, total_tb);
+  }
+
+
 
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #else // GASAL

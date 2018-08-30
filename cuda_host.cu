@@ -211,7 +211,6 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
-#ifndef NIGHTLY
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
@@ -219,15 +218,6 @@ int* Align_Batch_GPU( \
     query_poss_d, ref_poss_d, \
     outs_d, \
     firsts_d, (char*)(s->matrices_d));
-#else
-  gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
-    packed_query_seqs_d, packed_ref_seqs_d, \
-    query_lens_d, ref_lens_d, \
-    query_offsets_d, ref_offsets_d, \
-    query_poss_d, ref_poss_d, \
-    outs_d, \
-    firsts_d, (char*)(s->matrices_d), s->local_d);
-#endif
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
@@ -304,7 +294,6 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
 #ifdef GASAL
   int size_matrices = (tile_size+2)*(tile_size+2);
-  int size_local = sizeof(short4)*MAX_SEQ_LEN;
 #else // GASAL
 #ifndef COMPRESS_DIR
   int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
@@ -334,9 +323,6 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-#ifdef NIGHTLY
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].local_d), BATCH_SIZE*size_local));
-#endif
 #else
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
 #endif
@@ -362,9 +348,6 @@ void GPU_close(std::vector<GPU_storage> *s, int num_threads){
     cudaSafeCall(cudaFree((void*)((*s)[i].firsts_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].outs_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].matrices_d)));
-#ifdef NIGHTLY
-    cudaSafeCall(cudaFree((void*)((*s)[i].local_d)));
-#endif
 #ifdef STREAM
     cudaSafeCall(cudaStreamDestroy((*s)[i].stream->stream));
     free((*s)[i].stream);

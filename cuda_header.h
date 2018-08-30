@@ -38,7 +38,7 @@ __constant__ int _early_terminate;
     #define __X 1
 #endif
 
-#if defined(COALESCE_BASES) || defined(NIGHTLY)
+#if defined(COALESCE_BASES)
     #define __Y NTHREADS
 #else
     #define __Y 1
@@ -117,7 +117,6 @@ if(tid==0){
     maxHH = (maxHH < curr) ? curr : maxHH;
 
 
-#ifndef NIGHTLY
     __global__ void gasal_local_kernel( \
     uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
     const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
@@ -125,16 +124,6 @@ if(tid==0){
     const int *query_poss, const int *ref_poss, \
     int *out, \
     const char *firsts, char *dir_matrix)
-#else
-    __global__ void gasal_local_kernel( \
-    uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
-    const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
-    int32_t *query_offsets, int32_t *target_offsets, \
-    const int *query_poss, const int *ref_poss, \
-    int *out, \
-    const char *firsts, char *dir_matrix, \
-    char *local)
-#endif
     {
         int32_t i, j, k, m, l;
         int32_t e, z;
@@ -142,13 +131,8 @@ if(tid==0){
         int32_t prev_maxHH = 0;
         int32_t subScore;
         int32_t ridx, gidx;
-#ifndef NIGHTLY
         short3 HD;
         short3 initHD = make_short3(0, 0, 0);
-#else
-        short4 HD;
-        short4 initHD = make_short4(0, 0, 0, 0);
-#endif
         int32_t maxXY_x = 0;
         int32_t maxXY_y = 0;
         const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -182,11 +166,7 @@ if(tid==0){
         //printf("T%d packed_query_batch: %p, query_regs: %d, target_regs: %d\n", tid, packed_query_batch, query_batch_regs, target_batch_regs);
 //if(tid==0)printf("match: %d, mismatch: %d, open: %d, extend: %d\n", _match, _mismatch, _gap_open, _gap_extend);
         //-----arrays for saving intermediate values------
-#ifndef NIGHTLY
         short3 global[MAX_SEQ_LEN];
-#else
-        short4 *global = (short4*)local + tid;
-#endif
         int32_t h[9];
         int32_t f[9];
         int32_t p[9];

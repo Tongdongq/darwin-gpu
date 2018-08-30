@@ -14,6 +14,11 @@ fi
 
 file=$1
 
-cp $src/$file.1.subreads.fasta reference.fasta
-cp $src/$file.2.subreads.fasta reads.fasta
+if [[ $1 == *"NPBSS"* ]]; then
+	cp ../NPBSS/reads_NPBSS.fasta reads.fasta
+	cp ../NPBSS/ref_NPBSS.fasta reference.fasta
+else
+	cp $src/$file.1.subreads.fasta reference.fasta
+	cp $src/$file.2.subreads.fasta reads.fasta
+fi
 

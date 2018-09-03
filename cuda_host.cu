@@ -42,7 +42,7 @@ int* Align_Batch_GPU( \
   std::vector<std::queue<int> > result;
 
   int BATCH_SIZE = num_blocks * threads_per_block;
-
+printf("50\n");
  /* for(int j = 0; j < BATCH_SIZE; ++j){
     char *ref_seq = (char*)ref_seqs[j].c_str();
     char *query_seq = (char*)query_seqs[j].c_str();
@@ -80,8 +80,8 @@ int* Align_Batch_GPU( \
 
   int ref_curr = 0, query_curr = 0;
 
-  ref_seqs_b = (char*)malloc(BATCH_SIZE * tile_size);
-  query_seqs_b = (char*)malloc(BATCH_SIZE * tile_size);
+  ref_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
+  query_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
   ref_lens_b = (int*)malloc(BATCH_SIZE * sizeof(int));
   query_lens_b = (int*)malloc(BATCH_SIZE * sizeof(int));
   ref_poss_b = (int*)malloc(BATCH_SIZE * sizeof(int));
@@ -141,6 +141,7 @@ int* Align_Batch_GPU( \
 #endif // COALESCE_BASES
 #endif // GASAL
     ref_lens_b[t] = ref_lens[t];
+    printf("T%d ref_len: %d\n", t, ref_lens_b[t]);
     query_lens_b[t] = query_lens[t];
     ref_poss_b[t] = ref_poss[t];
     query_poss_b[t] = query_poss[t];
@@ -157,16 +158,21 @@ int* Align_Batch_GPU( \
     if(ref_lens[t] == -1){continue;}
     ref_offsets_b[t] = ref_curr;
     query_offsets_b[t] = query_curr;
+#ifndef COALESCE_PACKED_BASES
     if(reverses[t] == 1){
         memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
         memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
     }else{
+      printf("T%d is forward\n", t);
         for(int j = 0; j < ref_lens[t]; ++j){
             ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
         }
+        printf("T%d query %d \t", t, query_lens[t]);
         for(int j = 0; j < query_lens[t]; ++j){
+          if(j % 8 == 0){printf(" ");}
+            printf("%d", query_seqs[t].c_str()[query_lens[t]-j-1]);
             query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
-        }
+        }printf("\n");
     }
     ref_curr += ref_lens[t];
     query_curr += query_lens[t];
@@ -176,6 +182,91 @@ int* Align_Batch_GPU( \
     while(query_curr % 8 != 0){
       query_seqs_b[query_curr++] = 5;
     }
+#else
+    printf("100\n");
+    printf("ref_seqs_b: %p, %p\n", ref_seqs_d, ref_seqs_d + BATCH_SIZE*tile_size);
+    printf("query_seqs_d: %p, %p\n", query_seqs_d, query_seqs_d + BATCH_SIZE*tile_size);
+    printf("packed_query_seqs_d: %p, %p\n", s->packed_query_seqs_d, s->packed_query_seqs_d + BATCH_SIZE*tile_size/4);
+    //printf("T%d lens: %d %d\n", t, ref_lens_b[t], query_lens_b[t]);
+    int i, j, remainder;
+    if(reverses[t] == 1){
+      for(i = 0; i < ref_lens[t] / 8; ++i){
+        memcpy(ref_seqs_b + (i * BATCH_SIZE + t) * 8, ref_seqs[t].c_str() + 8*i, 8);
+      }
+      printf("T%d ref_lens[t] \% 8: %d, blabla: %d\n", t, ref_lens[t] % 8, (i*BATCH_SIZE+t)*8);
+      if(ref_lens[t] % 8 != 0){
+        memcpy(ref_seqs_b + (i * BATCH_SIZE + t) * 8, ref_seqs[t].c_str() + 8*i, ref_lens[t] % 8);
+      //for(j = 0; j < ref_lens[t] % 8; ++j){
+        for(j = ref_lens[t] % 8; j < 8; ++j){
+          printf("ref_seqs offset: %d\n", (i*BATCH_SIZE+t)*8+j);
+          ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 4;
+        }
+        printf("ref filled\n");
+        for(int k = 0; k < 8; ++k){
+          printf("%d", ref_seqs_b[(i*BATCH_SIZE+t)*8+k]);
+        }printf("\n");
+      }
+      for(i = 0; i < query_lens[t] / 8; ++i){
+        char *addr = query_seqs_b + (i * BATCH_SIZE + t) * 8;
+        /*printf("T%d query %p\t", t, addr);
+        for(int k = 0; k < 8; ++k){
+          printf("%d", query_seqs[t].c_str()[8*i + k]);
+        }printf("\n");*/
+        memcpy(query_seqs_b + (i * BATCH_SIZE + t) * 8, query_seqs[t].c_str() + 8*i, 8);
+      }
+      if(query_lens[t] % 8 != 0){
+        memcpy(query_seqs_b + (i * BATCH_SIZE + t) * 8, query_seqs[t].c_str() + 8*i, query_lens[t] % 8);
+        printf("T%d query fill\n", t);
+        for(int k = 0; k < 8; ++k){
+          printf("%d", query_seqs_b[(i * BATCH_SIZE + t) * 8 + k]);
+        }printf("\n");
+        for(j = query_lens[t] % 8; j < 8; ++j){
+          query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 5;
+        }
+        printf("T%d query filled\n", t);
+        for(int k = 0; k < 8; ++k){
+          printf("%d", query_seqs_b[(i * BATCH_SIZE + t) * 8 + k]);
+        }printf("\n");
+      }
+        //memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
+        //memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
+    }else{
+      printf("T%d is forward\n", t);
+        for(i = 0; i < ref_lens[t] / 8; ++i){
+          for(j = 0; j < 8; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = ref_seqs[t].c_str()[ref_lens[t]-8*i-j-1];
+          }
+        }
+        remainder = ref_lens[t] % 8;
+        if(remainder != 0){
+          for(j = 0; j < remainder; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = ref_seqs[t].c_str()[ref_lens[t]-8*i-j-1];;
+          }
+          //printf("T%d ref fill %d\n", t, remainder);
+          for(; j < 8; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 4;
+          }
+        }
+        printf("T%d query %d \t", t, query_lens[t]);
+        for(i = 0; i < query_lens[t] / 8; ++i){
+          for(j = 0; j < 8; ++j){
+            //printf("%d", query_seqs[t].c_str()[query_lens[t]-8*i-j-1]);
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = query_seqs[t].c_str()[query_lens[t]-8*i-j-1];
+          }//printf(" ");
+        }//printf("\n");
+        remainder = query_lens[t] % 8;
+        if(remainder % 8 != 0){
+          for(j = 0; j < remainder; ++j){
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = query_seqs[t].c_str()[query_lens[t]-8*i-j-1];;
+          }
+          for(; j < 8; ++j){
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 5;
+          }
+        }
+    }
+    ref_curr = BATCH_SIZE * tile_size;
+    query_curr = BATCH_SIZE * tile_size;
+#endif
   }
   /*for(int i = 0; i < 640; ++i){
     if(i%8==0)printf(" ");
@@ -185,6 +276,7 @@ int* Align_Batch_GPU( \
     if(i%8==0)printf(" ");
     printf("%d", ref_seqs_b[i]);
   }printf("\n");//*/
+  printf("150\n");
   uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
   uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
   int32_t *query_offsets_d = s->query_offsets_d;
@@ -202,7 +294,7 @@ int* Align_Batch_GPU( \
   cudaSafeCall(cudaMemcpyAsync((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)query_offsets_d, query_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)ref_offsets_d, ref_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
-
+printf("200\n");
   gasal_pack_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     (uint32_t*)query_seqs_d, (uint32_t*)ref_seqs_d, \
     packed_query_seqs_d, packed_ref_seqs_d, \
@@ -210,7 +302,7 @@ int* Align_Batch_GPU( \
     query_curr / 4, ref_curr / 4);
 
   cudaSafeCall(cudaStreamSynchronize(stream));
-
+printf("250\n");
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
@@ -220,7 +312,7 @@ int* Align_Batch_GPU( \
     firsts_d, (char*)(s->matrices_d));
 
   cudaSafeCall(cudaStreamSynchronize(stream));
-
+printf("300\n");
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #else // GASAL
   cudaStream_t stream = s->stream->stream;
@@ -259,7 +351,7 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #endif
-
+printf("400\n");
 #ifdef STABLE
   std::queue<int> BT_states;
   int off = 0;
@@ -268,6 +360,9 @@ int* Align_Batch_GPU( \
     BT_states = std::queue<int>();
     for(int i = 1; i <= outs_b[off]; ++i){
       BT_states.push(outs_b[i+off]);
+      if(t==15){
+        printf("%d\n", outs_b[i+off]);
+      }
     }
     off += (2 * tile_size);
     result.push_back(BT_states);
@@ -304,8 +399,8 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
   for(int i = 0; i < num_threads; ++i){
     s->push_back(GPU_storage());
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*tile_size));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*(tile_size+1)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_seqs_d), BATCH_SIZE*(tile_size+1)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_lens_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_lens_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_poss_d), BATCH_SIZE*sizeof(int)));

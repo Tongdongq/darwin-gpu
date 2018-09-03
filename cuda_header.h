@@ -38,7 +38,7 @@ __constant__ int _early_terminate;
     #define __X 1
 #endif
 
-#if defined(COALESCE_BASES)
+#if defined(COALESCE_BASES) || defined (COALESCE_PACKED_BASES)
     #define __Y NTHREADS
 #else
     #define __Y 1
@@ -63,12 +63,8 @@ __global__ void gasal_pack_kernel( \
     int32_t i;
     const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
     uint32_t n_threads = gridDim.x * blockDim.x;
-if(tid==0){
-    //printf("packing\n");
-    for(i = 0; i < 50; ++i){
-        //printf("%d\n", ((char*)unpacked_query_batch)[i]);
-    }
-}
+
+//#ifndef COALESCE_BASES
     for (i = 0; i < query_batch_tasks_per_thread &&  (((i*n_threads)<<1) + (tid<<1) < total_query_batch_regs); ++i) {
         uint32_t *query_addr = &(unpacked_query_batch[(i*n_threads)<<1]);
         uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
@@ -85,8 +81,53 @@ if(tid==0){
         packed_reg |= ((reg2 >> 24) & 15);      //----
         uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
         packed_query_addr[tid] = packed_reg; //write 8 bases of packed query sequence to global memory
-        //printf("T%d packed_query_addr: %p\n", tid, packed_query_addr+tid);
+        if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
     }
+/*#else
+    uint32_t offsetu = 0, j;
+    uint32_t bases_per_pack = n_threads*8;
+    for(i = 0; i < num_reads; ++i){
+        uint32_t read_len = lengths[i];
+        // first pack multiples of n_threads*8 bases
+        for(j = 0; j < read_len/bases_per_pack; ++j){
+            uint32_t *query_addr = &(unpacked_query_batch[(j*n_threads)<<1]);
+            uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
+            uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
+            //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
+            uint32_t packed_reg = 0;
+            packed_reg |= (reg1 & 15) << 28;        // ---
+            packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
+            packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
+            packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
+            packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
+            packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
+            packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
+            packed_reg |= ((reg2 >> 24) & 15);      //----
+            uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
+            packed_query_addr[tid*n_threads] = packed_reg; //write 8 bases of packed query sequence to global memory
+            if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid*n_threads, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
+        }
+        // then pack remaining bases
+        if(tid*8 < read_len % bases_per_pack){
+            uint32_t *query_addr = &(unpacked_query_batch[(j*n_threads)<<1]);
+            uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
+            uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
+            //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
+            uint32_t packed_reg = 0;
+            packed_reg |= (reg1 & 15) << 28;        // ---
+            packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
+            packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
+            packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
+            packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
+            packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
+            packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
+            packed_reg |= ((reg2 >> 24) & 15);      //----
+            uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
+            packed_query_addr[tid*n_threads] = packed_reg; //write 8 bases of packed query sequence to global memory
+            if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid*n_threads, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
+        }
+    }
+#endif//*/
 /*if(tid==1){
     for(i = 0; i < 80; ++i){
         printf("%08x ", packed_query_batch[i]);
@@ -145,8 +186,13 @@ if(tid==0){
         out += (_tile_size * 2 * tid);
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
+#ifndef COALESCE_PACKED_BASES
         packed_query_batch += query_offsets[tid] >> 3;
         packed_target_batch += target_offsets[tid] >> 3;
+#else
+        packed_query_batch += tid;
+        packed_target_batch += tid;
+#endif
         //printf("T%d query offset: %d, %p, ref offset: %d, %p, query_len: %d, ref_len: %d\n", tid, query_offsets[tid], packed_query_batch, target_offsets[tid], packed_target_batch, query_len, ref_len);
         //printf("T%d query_pos: %d, ref_pos: %d\n", tid, query_pos, ref_pos);
         /*if(tid==14){
@@ -174,7 +220,7 @@ if(tid==0){
         //printf("T%d h: %p, f: %p, p: %p, d: %p, global: %p, d[8]: %p\n", tid, h, f, p, d, global, d+8*__X);
         //--------------------------------------------
         for (i = 0; i < MAX_SEQ_LEN; i++) {
-            global[i*__Y] = initHD;
+            global[i] = initHD;
         }
         dir_matrix += tid;
         for (int i = 0; i < ref_len + 2; i++) {
@@ -192,18 +238,23 @@ if(tid==0){
                     p[m] = 0;
                     d[m] = 0;
             }
-            register uint32_t gpac = packed_target_batch[i];//load 8 packed bases from target_batch sequence
+            register uint32_t gpac = packed_target_batch[i*__Y];//load 8 packed bases from target_batch sequence
+//printf("T%d GPU ref %d %p, %x\n", tid, i, packed_target_batch+i*__Y, gpac);
+printf("T%d GPU ref %d, %x\n", tid, i, gpac);
             gidx = i << 3;
             ridx = 0;
             for (j = 0; j < query_batch_regs; j++) { //query_batch sequence in columns
-                register uint32_t rpac = packed_query_batch[j];//load 8 bases from query_batch sequence
+//printf("T%d query %d %p\n", tid, j, packed_query_batch+j*__Y);
+                register uint32_t rpac = packed_query_batch[j*__Y];//load 8 bases from query_batch sequence
+//if(i==0)printf("T%d GPU query %d %p, %x\n", tid, j, packed_query_batch+j*__Y, rpac);
+if(i==0)printf("T%d GPU query %d, %x\n", tid, j, rpac);
 
                 //--------------compute a tile of 8x8 cells-------------------
                     for (k = 28; k >= 0; k -= 4) {
                         uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
 //if(tid==0){printf("base: %d\n", rbase);}
                         //-----load intermediate values--------------
-                        HD = global[ridx*__Y];
+                        HD = global[ridx];
                         h[0] = HD.x;
                         e = HD.y;
                         z = HD.z;
@@ -301,7 +352,7 @@ if(tid==0){
                         HD.x = h[m-1];
                         HD.y = e;
                         HD.z = z;
-                        global[ridx*__Y] = HD;
+                        global[ridx] = HD;
                         //---------------------------------------------
                         //maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
                         //prev_maxHH = max(maxHH, prev_maxHH);
@@ -318,7 +369,9 @@ if(tid==0){
 if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
-
+if(tid==0){
+    printf("matfill done\n");
+}
         i = 1;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
@@ -383,7 +436,9 @@ if(1){
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);
-
+if(tid==0){
+    printf("kernel done\n");
+}
         return;
 } // end gasal_local_kernel()
 

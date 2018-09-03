@@ -560,7 +560,7 @@ int main(int argc, char *argv[]) {
             reference_string += std::string((bin_size - (reference_seqs[i].length() % bin_size)), 'N');
             bin_to_chr_id[curr_bin++] = i;
         }
-        //std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
+        std::cout << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
     }
 
     reference_length = reference_string.length();
@@ -583,6 +583,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_reads; i++) {
         std::string rev_read = RevComp(reads_seqs[i]);
         rev_reads_seqs.push_back(rev_read);
+        std::cout << "Read " << i << ", length: " << rev_read.size() << std::endl;
     }
 
     std::cout << "Number of reads: " << num_reads << std::endl;

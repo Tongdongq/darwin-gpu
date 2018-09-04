@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vector>
 #include <queue>
 #include <string>
+#include <sys/time.h> // for gettimeofday()
 
 #ifdef GPU
 
@@ -152,6 +153,10 @@ int* Align_Batch_GPU( \
   int NUM_BLOCKS = num_blocks;
   int THREADSPERBLOCK = threads_per_block;
 
+  static int total_GPU_prep = 0, total_pack_time = 0, total_align_time = 0;
+  static int count = 0;
+  struct timeval t1, t2;
+  gettimeofday(&t1, NULL);
 
 #ifdef STREAM
 #ifdef GASAL
@@ -249,6 +254,7 @@ int* Align_Batch_GPU( \
     printf("%d", ref_seqs_b[i]);
   }printf("\n");//*/
   //printf("150\n");
+
   uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
   uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
   int32_t *query_offsets_d = s->query_offsets_d;
@@ -267,6 +273,11 @@ int* Align_Batch_GPU( \
   cudaSafeCall(cudaMemcpyAsync((void*)query_offsets_d, query_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
   cudaSafeCall(cudaMemcpyAsync((void*)ref_offsets_d, ref_offsets_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
 
+  gettimeofday(&t2,NULL);
+  int diff = (t2.tv_usec + 1000000 * t2.tv_sec) - (t1.tv_usec + 1000000 * t1.tv_sec);
+  total_GPU_prep += diff;
+  gettimeofday(&t1,NULL);
+
   gasal_pack_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     (uint32_t*)query_seqs_d, (uint32_t*)ref_seqs_d, \
     packed_query_seqs_d, packed_ref_seqs_d, \
@@ -274,6 +285,11 @@ int* Align_Batch_GPU( \
     query_curr / 4, ref_curr / 4);
 
   cudaSafeCall(cudaStreamSynchronize(stream));
+
+  gettimeofday(&t2,NULL);
+  diff = (t2.tv_usec + 1000000 * t2.tv_sec) - (t1.tv_usec + 1000000 * t1.tv_sec);
+  total_pack_time += diff;
+  gettimeofday(&t1,NULL);
 
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
@@ -284,6 +300,14 @@ int* Align_Batch_GPU( \
     firsts_d, (char*)(s->matrices_d));
 
   cudaSafeCall(cudaStreamSynchronize(stream));
+
+  gettimeofday(&t2,NULL);
+  diff = (t2.tv_usec + 1000000 * t2.tv_sec) - (t1.tv_usec + 1000000 * t1.tv_sec);
+  total_align_time += diff;
+
+  if(count++ > 900){
+    printf("XXX %d total_GPU_prep: %d, total_pack: %d, total_align: %d\n", count, total_GPU_prep, total_pack_time, total_align_time);
+  }
 
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #else // GASAL

@@ -81,7 +81,7 @@ __global__ void gasal_pack_kernel( \
         packed_reg |= ((reg2 >> 24) & 15);      //----
         uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
         packed_query_addr[tid] = packed_reg; //write 8 bases of packed query sequence to global memory
-        if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
+        //if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
     }
 /*#else
     uint32_t offsetu = 0, j;
@@ -240,14 +240,14 @@ __global__ void gasal_pack_kernel( \
             }
             register uint32_t gpac = packed_target_batch[i*__Y];//load 8 packed bases from target_batch sequence
 //printf("T%d GPU ref %d %p, %x\n", tid, i, packed_target_batch+i*__Y, gpac);
-printf("T%d GPU ref %d, %x\n", tid, i, gpac);
+//printf("T%d GPU ref %d, %x\n", tid, i, gpac);
             gidx = i << 3;
             ridx = 0;
             for (j = 0; j < query_batch_regs; j++) { //query_batch sequence in columns
 //printf("T%d query %d %p\n", tid, j, packed_query_batch+j*__Y);
                 register uint32_t rpac = packed_query_batch[j*__Y];//load 8 bases from query_batch sequence
 //if(i==0)printf("T%d GPU query %d %p, %x\n", tid, j, packed_query_batch+j*__Y, rpac);
-if(i==0)printf("T%d GPU query %d, %x\n", tid, j, rpac);
+//if(i==0)printf("T%d GPU query %d, %x\n", tid, j, rpac);
 
                 //--------------compute a tile of 8x8 cells-------------------
                     for (k = 28; k >= 0; k -= 4) {
@@ -369,9 +369,7 @@ if(tid==0){
 if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
-if(tid==0){
-    printf("matfill done\n");
-}
+
         i = 1;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
@@ -436,9 +434,7 @@ if(tid==0){
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);
-if(tid==0){
-    printf("kernel done\n");
-}
+
         return;
 } // end gasal_local_kernel()
 

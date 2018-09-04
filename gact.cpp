@@ -461,7 +461,7 @@ io_lock.unlock();//*/
                 query_seqs[t] = reads_seqs_p->at(c->query_id).substr(query_pos, query_lens[t]);
                 reverses[t] = 0;
             }
-            printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
+            //printf("T%d assignment callidx: %d, reverse: %d, first: %d, ref_pos: %d, query_pos: %d, ref_id: %d, query_id: %d\n", t, callidx, reverses[t], firsts_b[t], ref_pos, query_pos, c->ref_id, c->query_id);
         }   // end prepare batch
 
 #ifdef TIME
@@ -501,7 +501,7 @@ io_lock.unlock();//*/
             BT_statess.push_back(q);
         }
 #endif
-printf("500\n");
+
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
@@ -520,7 +520,7 @@ printf("500\n");
             int tile_score = BT_states.front();
             int first_tile_score;
             BT_states.pop();
-printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
+//printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
@@ -543,20 +543,12 @@ printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size()
                 while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();
-if(t==16){printf("state: %d\n", state);}
                     BT_states.pop();
                     if (state == M) {
-                        if(t==16){printf("ref: %d, query: %d, ids: %d %d\n", ref_pos-j-1, query_pos-i-1, c->ref_id, c->query_id);}
-                        if(t==16){printf("%d, %d\n", reference_seqs[c->ref_id][ref_pos-j-1], reads_seqs_p->at(c->query_id)[query_pos-i-1]);}
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
-                        if(t==16){printf("ref inserted\n");}
-                        if(t==16){printf("query length: %d\n", reads_seqs_p->at(c->query_id).size());}
-                        if(t==16){printf("aligned query length: %d\n", aligned_query_strs[callidx].size());}
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
-                        if(t==16){printf("query inserted\n");}
                         i += 1;
                         j += 1;
-                        if(t==16){printf("state updated\n");}
                     }
                     if (state == I) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
@@ -569,7 +561,7 @@ if(t==16){printf("state: %d\n", state);}
                         i += 1;
                     }
                 }
-                printf("T%d done with tb in rev dir, i: %d, j: %d\n", t, i, j);
+                //printf("T%d done with tb in rev dir, i: %d, j: %d\n", t, i, j);
                 ref_pos -= (j);
                 query_pos -= (i);
             }else{      // else forward
@@ -592,12 +584,7 @@ if(t==16){printf("state: %d\n", state);}
                     int state = BT_states.front();
                     BT_states.pop();
                     if (state == M) {
-                        if(t==16){printf("ref: %d, query: %d, ids: %d %d\n", ref_pos-j-1, query_pos-i-1, c->ref_id, c->query_id);}
-                        if(t==16){printf("%d, %d\n", reference_seqs[c->ref_id][ref_pos-j-1], reads_seqs_p->at(c->query_id)[query_pos-i-1]);}
                         aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
-                        if(t==16){printf("ref inserted\n");}
-                        if(t==16){printf("query length: %d\n", reads_seqs_p->at(c->query_id).size());}
-                        if(t==16){printf("aligned query length: %d\n", aligned_query_strs[callidx].size());}
                         aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);
                         i += 1;
                         j += 1;
@@ -624,9 +611,9 @@ if(t==16){printf("state: %d\n", state);}
             }
             c->ref_pos = ref_pos;
             c->query_pos = query_pos;
-            printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
+            //printf("T%d after tb: callidx: %d, ref_pos: %d, query_pos: %d, terminate: %d, rev: %d, i: %d, j: %d\n", t, callidx+offset, ref_pos, query_pos, terminate[t], c->reverse, i, j);
         } // end postprocess
-printf("700\n");
+
 //printf("WARNING early terminate\n");
 //return;
     } // end main loop

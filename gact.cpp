@@ -471,7 +471,11 @@ io_lock.unlock();//*/
 #endif
 
 #ifdef GPU
+#ifdef STABLE
+        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
+#else
         int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
+#endif // STABLE
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
         BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
@@ -483,6 +487,7 @@ io_lock.unlock();//*/
         t1 = std::chrono::high_resolution_clock::now();
 #endif
 
+#ifndef STABLE
         std::queue<int> q;
         int off = 0;
         BT_statess.clear();
@@ -495,6 +500,7 @@ io_lock.unlock();//*/
             off += (2 * tile_size);
             BT_statess.push_back(q);
         }
+#endif
 
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){

@@ -35,6 +35,8 @@ do
 		options="$options -D GASAL";;
 	"CPBASES")
 		options="$options -D COALESCE_PACKED_BASES";;
+	"STABLE")
+		options="$options -D STABLE";;
 	"32")
 		maxregcount=32;;
 	"64")

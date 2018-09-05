@@ -634,11 +634,9 @@ char ref_nt = ref_seq[(i-1)*__Y];
             // 7% speedup*/
             h_matrix_wr[j*__X] = tmp2;
 
-
-#ifdef STABLE
             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-#endif
+
             (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
 if(tid==0){
     if(i-1 > 260 && j-1 > 80 && j-1 < 120){
@@ -705,7 +703,6 @@ if(first == 0){
 
     char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
 
-#ifdef STABLE
     while (state != Z) {
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
@@ -730,34 +727,7 @@ if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", sta
             j_steps++;
         }
     };
-#else
-    BT_states[i++] = state;
-    while (state != Z) {
-//if(tid==1&&query_pos==206)printf("X T%d state: %d, i: %d, j: %d, steps i: %d, j: %d, i: %d\n", tid, state, i_curr, j_curr, i_steps, j_steps, i);
-        if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
-            break;
-        }
-        if (state == M) {
-            i_curr--;
-            j_curr--;
-            i_steps++;
-            j_steps++;
-        }
-        else if (state == I) {
-            i_curr--;
-            i_steps++;
-        }
-        else if (state == D) {
-            j_curr--;
-            j_steps++;
-        }
-        state = (dir_matrix[(i_curr*row_len+j_curr)*__X] % 4);
-        BT_states[i++] = state;
-    };
-    if(state == Z || i_steps >= _early_terminate || j_steps >= _early_terminate){
-        i--;
-    }
-#endif // STABLE
+    
     BT_states[0] = i - 1;
     //printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr-1, j_curr-1, i_steps, j_steps);

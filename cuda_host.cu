@@ -19,16 +19,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "cuda_header.h"
 #include "gact.h"
 
-#ifdef STABLE
-std::vector<std::queue<int> > Align_Batch_GPU( \
-    std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, \
-    std::vector<int> ref_lens, std::vector<int> query_lens, \
-    int *sub_mat, int gap_open, int gap_extend, \
-    std::vector<int> ref_poss, std::vector<int> query_poss, \
-    std::vector<char> reverses, std::vector<char> firsts, \
-    int early_terminate, int tile_size, \
-    GPU_storage *s, int num_blocks, int threads_per_block){
-#else
 int* Align_Batch_GPU( \
     std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, \
     std::vector<int> ref_lens, std::vector<int> query_lens, \
@@ -37,7 +27,6 @@ int* Align_Batch_GPU( \
     std::vector<char> reverses, std::vector<char> firsts, \
     int early_terminate, int tile_size, \
     GPU_storage *s, int num_blocks, int threads_per_block){
-#endif
 
   std::vector<std::queue<int> > result;
 
@@ -324,25 +313,7 @@ int* Align_Batch_GPU( \
   cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #endif
 
-#ifdef STABLE
-  std::queue<int> BT_states;
-  int off = 0;
-
-  for(int t = 0; t < BATCH_SIZE; ++t){
-    BT_states = std::queue<int>();
-    for(int i = 1; i <= outs_b[off]; ++i){
-      BT_states.push(outs_b[i+off]);
-      if(t==15){
-        printf("%d\n", outs_b[i+off]);
-      }
-    }
-    off += (2 * tile_size);
-    result.push_back(BT_states);
-  }
-  return result;
-#else
   return outs_b;
-#endif
 }
 
 

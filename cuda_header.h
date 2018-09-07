@@ -260,7 +260,7 @@ if(tid==2){
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 
-                            if(h[m] == maxHH){  
+                            /*if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
@@ -278,12 +278,32 @@ if(tid==2){
                                 maxXY_y = ii;
                                 maxXY_x = jj;
                                 maxHH = h[m]; 
-                            }
+                            }//*/
 
                             p[m] = h[m-1];
                             int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
+
+                            asm("{\n\t"
+                                " .reg .pred p, q, r, s, t;\n\t"
+                                " setp.eq.s32 p, %3, %0;\n\t"   // if h[m] == maxHH
+                                " setp.gt.s32 q, %4, %1;\n\t"   // if ii > maxXY_y
+                                " setp.eq.s32 r, %4, %1;\n\t"   // if ii == maxXY_y
+                                " setp.gt.s32 s, %5, %2;\n\t"   // if jj > maxXY_x
+                                " setp.gt.s32 t, %3, %0;\n\t"   // if h[m] > maxHH
+                                " and.pred r, r, s;\n\t"        // r = r && s
+                                " or.pred q, q, r;\n\t"         // q = q || r
+                                " and.pred p, p, q;\n\t"        // p = p && q
+                                " or.pred t, t, p;\n\t"         // t = t || p
+                                " selp.s32 %1, %4, %1, t;\n\t"  // if t: maxXY_y = ii
+                                " selp.s32 %2, %5, %2, t;\n\t"  // if t: maxXY_x = jj
+                                " selp.s32 %0, %3, %0, t;\n\t"  // if t: maxHH = h[m]
+                                "}"
+                                : "+r" (maxHH), "+r" (maxXY_y), "+r" (maxXY_x)
+                                : "r" (h[m]), "r" (ii), "r" (jj)
+                                );
+
 if(tid==0){
     if(ii > 240 && ii < 270 && jj > 110 && jj < 150){
         //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d, dir: %p, h[m]: %d\n", \

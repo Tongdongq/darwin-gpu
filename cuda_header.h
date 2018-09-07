@@ -64,12 +64,10 @@ __global__ void gasal_pack_kernel( \
     const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
     uint32_t n_threads = gridDim.x * blockDim.x;
 
-//#ifndef COALESCE_BASES
     for (i = 0; i < query_batch_tasks_per_thread &&  (((i*n_threads)<<1) + (tid<<1) < total_query_batch_regs); ++i) {
         uint32_t *query_addr = &(unpacked_query_batch[(i*n_threads)<<1]);
         uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
         uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
-        //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
         uint32_t packed_reg = 0;
         packed_reg |= (reg1 & 15) << 28;        // ---
         packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
@@ -81,58 +79,7 @@ __global__ void gasal_pack_kernel( \
         packed_reg |= ((reg2 >> 24) & 15);      //----
         uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
         packed_query_addr[tid] = packed_reg; //write 8 bases of packed query sequence to global memory
-        //if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
     }
-/*#else
-    uint32_t offsetu = 0, j;
-    uint32_t bases_per_pack = n_threads*8;
-    for(i = 0; i < num_reads; ++i){
-        uint32_t read_len = lengths[i];
-        // first pack multiples of n_threads*8 bases
-        for(j = 0; j < read_len/bases_per_pack; ++j){
-            uint32_t *query_addr = &(unpacked_query_batch[(j*n_threads)<<1]);
-            uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
-            uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
-            //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
-            uint32_t packed_reg = 0;
-            packed_reg |= (reg1 & 15) << 28;        // ---
-            packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
-            packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
-            packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
-            packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
-            packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
-            packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
-            packed_reg |= ((reg2 >> 24) & 15);      //----
-            uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
-            packed_query_addr[tid*n_threads] = packed_reg; //write 8 bases of packed query sequence to global memory
-            if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid*n_threads, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
-        }
-        // then pack remaining bases
-        if(tid*8 < read_len % bases_per_pack){
-            uint32_t *query_addr = &(unpacked_query_batch[(j*n_threads)<<1]);
-            uint32_t reg1 = query_addr[(tid << 1)]; //load 4 bases of the query sequence from global memory
-            uint32_t reg2 = query_addr[(tid << 1) + 1]; //load  another 4 bases
-            //printf("T%d query_addr: %p\n", tid, query_addr+2*tid);
-            uint32_t packed_reg = 0;
-            packed_reg |= (reg1 & 15) << 28;        // ---
-            packed_reg |= ((reg1 >> 8) & 15) << 24; //    |
-            packed_reg |= ((reg1 >> 16) & 15) << 20;//    |
-            packed_reg |= ((reg1 >> 24) & 15) << 16;//    |
-            packed_reg |= (reg2 & 15) << 12;        //     > pack sequence
-            packed_reg |= ((reg2 >> 8) & 15) << 8;  //    |
-            packed_reg |= ((reg2 >> 16) & 15) << 4; //    |
-            packed_reg |= ((reg2 >> 24) & 15);      //----
-            uint32_t *packed_query_addr = &(packed_query_batch[i*n_threads]);
-            packed_query_addr[tid*n_threads] = packed_reg; //write 8 bases of packed query sequence to global memory
-            if(i<2)printf("T%d packed_query_addr: %p, %x, unpacked: %p, %p, %x %x\n", tid, packed_query_addr+tid*n_threads, packed_reg, query_addr+2*tid, query_addr+2*tid+1, reg1, reg2);
-        }
-    }
-#endif//*/
-/*if(tid==1){
-    for(i = 0; i < 80; ++i){
-        printf("%08x ", packed_query_batch[i]);
-    }printf("\n");
-}//*/
     for (i = 0; i < target_batch_tasks_per_thread &&  (((i*n_threads)<<1) + (tid<<1)) < total_target_batch_regs; ++i) {
         uint32_t *target_addr = &(unpacked_target_batch[(i * n_threads)<<1]);
         uint32_t reg1 = target_addr[(tid << 1)]; //load 4 bases of the target sequence from global memory

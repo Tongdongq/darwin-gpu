@@ -564,7 +564,7 @@ int main(int argc, char *argv[]) {
     }
 
     reference_length = reference_string.length();
-    std::cout << "Reference length: " << (unsigned int) reference_length << std::endl;
+    std::cout << "Reference length: " << (unsigned int) reference_length << ", " << reference_seqs.size() << " pieces" << std::endl;
 
 
     gettimeofday(&end_time, NULL);

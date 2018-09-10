@@ -15,6 +15,7 @@ fi
 file=$1
 
 if [[ $1 == *"NPBSS"* ]]; then
+	cat ../NPBSS/.reads_created
 	cp ../NPBSS/reads_NPBSS.fasta reads.fasta
 	cp ../NPBSS/ref_NPBSS.fasta reference.fasta
 else

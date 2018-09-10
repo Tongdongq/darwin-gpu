@@ -207,10 +207,10 @@ __global__ void gasal_pack_kernel( \
                         z = HD.z;
                         //-------------------------------------------
                         int32_t prev_hm_diff = h[0] + _gap_open;
+                        int ii = i*8;
+                        int jj = j*8+7-k/4;
 #pragma unroll 8
-                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            int ii = i*8+m-1;
-                            int jj = j*8+7-k/4;
+                        for (l = 28, m = 1; m < 9; l -= 4, m++, ii++) {
                             uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 if(tid==2){
     //printf("gbase: %d, rbase: %d\n", gbase, rbase);
@@ -260,7 +260,7 @@ if(tid==2){
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 
-                            if(h[m] == maxHH){  
+                            /*if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
@@ -285,7 +285,7 @@ if(tid==2){
                             idx *= __X;
                             dir_matrix[idx] = tmp;
 
-                            /*asm("{\n\t"
+                            asm("{\n\t"
                                 " .reg .pred p, q, r, s, t;\n\t"
                                 " setp.eq.s32 p, %3, %0;\n\t"   // if h[m] == maxHH
                                 " setp.gt.s32 q, %4, %1;\n\t"   // if ii > maxXY_y

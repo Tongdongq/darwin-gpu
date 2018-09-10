@@ -232,8 +232,7 @@ if(tid==2){
                             z = match;
                             d[m] = match;
 
-
-                            /*if(match > tmp2){
+                            if(match > tmp2){
                                 tmp2 = match;
                                 tmp = MATCH_OP;
                             }
@@ -246,32 +245,10 @@ if(tid==2){
                             if(f[m] > tmp2){
                                 tmp2 = f[m];
                                 tmp = DELETE_OP;
-                            }//*/
+                            }
 
-
-asm("{\n\t");
-asm(" .reg .pred p, q, r;\n\t");
-asm(" .reg .s32 y, x;\n\t");
-asm(" max.s32 %0, %1, %2;\n\t":"=r"(e):"r"(ins_open),"r"(ins_extend));// e = max(ins_open, ins_extend)
-asm(" max.s32 %0, %1, %2;\n\t":"=r"(f[m]):"r"(del_open),"r"(del_extend));// f[m] = max(del_open, del_extend)
-asm(" setp.gt.s32 p, %0, %1;\n\t"::"r"(match),"r"(tmp2));   // p = (match>0)
-asm(" selp.s32 %0, %1, %0, p;\n\t":"+r"(tmp2):"r"(match));  // tmp2 = p ? match : 0
-asm(" selp.s32 %0, %1, %0, p;\n\t":"+r"(tmp):"r"(MATCH_OP));// tmp = p ? MATCH_OP : ZERO_OP
-asm(" setp.ge.s32 q, %0, %1;\n\t"::"r"(e),"r"(f[m]));       // q = (e >= f[m])
-asm(" selp.s32 y, %0, %1, q;\n\t"::"r"(e),"r"(f[m]));   // y = q ? e : f[m]
-asm(" selp.s32 x, %0, %1, q;\n\t"::"r"(INSERT_OP),"r"(DELETE_OP));// x = q ? INSERT_OP : DELETE_OP
-asm(" setp.ge.s32 r, %0, y;\n\t"::"r"(tmp2)); // r = (tmp2 >= y)
-asm(" selp.s32 %0, %0, y, r;\n\t":"+r"(tmp2)); // tmp2 = r ? tmp2 : y
-asm(" selp.s32 %0, %0, x, r;\n\t":"+r"(tmp));  // tmp = r ? tmp : x
-asm(" setp.ge.s32 p, %0, %1;\n\t"::"r"(ins_open),"r"(ins_extend)); // p = (ins_open >= ins_extend)
-asm(" @p add.s32 %0, %0, %1;\n\t":"+r"(tmp):"r"(2 << INSERT_OP));
-asm(" setp.ge.s32 q, %0, %1;\n\t"::"r"(del_open),"r"(del_extend)); // p = (del_open >= del_extend)
-asm(" @q add.s32 %0, %0, %1;\n\t":"+r"(tmp):"r"(2 << DELETE_OP));
-asm("}");//*/
-
-
-                            //tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-                            //tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
+                            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+                            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 
                             h[m] = tmp2;
 

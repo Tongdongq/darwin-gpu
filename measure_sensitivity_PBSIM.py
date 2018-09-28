@@ -38,8 +38,10 @@ if ref == 0:
 
 # analyze all reads
 # data header: id, startpos in genome, length of overlap
-f1 = open('../PBSIM/src/sd_0001.fasta','r')
-f2 = open('../PBSIM/src/sd_0002.fasta','r')
+#f1 = open('../PBSIM/src/sd_0001.fasta','r')
+#f2 = open('../PBSIM/src/sd_0002.fasta','r')
+f1 = open('reference.fasta','r')
+f2 = open('reads.fasta','r')
 list1 = []		# contains info from f1
 list2 = []		# contains info from f2
 
@@ -63,8 +65,9 @@ print("Num reads: %d %d" % (len(list1), len(list2)))
 
 max_length = 0		# max length of simulated read
 
-for read in list1:
-	max_length = max(max_length, read[2])
+if ref == 0:
+	for read in list1:
+		max_length = max(max_length, read[2])
 for read in list2:
 	max_length = max(max_length, read[2])
 
@@ -89,7 +92,7 @@ all_theoretical_overlaps = []
 
 if ref == 0:
 	for (idx1, r1) in enumerate(list1):
-		if idx1 % 1000 == 0:
+		if idx1 % 4000 == 0:
 			print('idx1: %d' % idx1)
 		for (idx2, r2) in enumerate(list2):
 			a1 = r1[1]
@@ -107,7 +110,7 @@ if ref == 0:
 			sb1 = o1 - b1
 			sb2 = o2 - b1
 			#print("%d %d" % (sa2-sa1, sb2-sb1))
-			if ovl_length > 1000:
+			if ovl_length >= 1000:
 				all_theoretical_overlaps.append((idx1, idx2, sa1, sa2, sb1, sb2, 0))
 			#print("r1: %d, r2: %d, sa1: %d, sa2: %d, sb1: %d, sb2: %d" % (idx1, idx2, sa1, sa2, sb1, sb2))
 			#print()
@@ -130,8 +133,8 @@ if ref == 0:
 ## ref_start, ref_end, read_start, read_end, score, comp, 0
 ## daligner:
 ## ref_id, read_id, \
-## ref_start (2 values), ref_end (2), \
-## read_start (2), read_end (2), ..., 0
+## ref_start, ref_end, \
+## read_start, read_end, 0
 ## last 0 is used to find False Positives (FP)
 all_heuristic_overlaps = []
 if daligner == 0:
@@ -162,6 +165,35 @@ else:
 	f1.close()
 print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
+# filter out some heuristic overlaps
+## example criteria: length of overlap, score
+score_thres = 00
+min_length = 00
+
+hidx = 3			# idx where the read_id is, inside the heuristic ovl
+last_idx = 12		# idx where the extra 0 is placed, which is used to count FP
+score_idx = 10		# idx where the score is, inside the heuristic ovl
+sa1 = 6; sa2 = 7; sb1 = 8; sb2 = 9
+
+if ref == 1:
+	min_length = 0
+	if daligner == 1:
+		last_idx = 999
+	else:
+		last_idx = 10
+		sa1 = 4; sa2 = 5; sb1 = 6; sb2 = 7; score_idx = 8
+else:
+	if daligner == 1:
+		hidx = 1
+		last_idx = 7
+		sa1 = 2; sa2 = 3; sb1 = 4; sb2 = 5; score_idx = 6
+
+
+all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[sa2]-ovl[sa1] >= min_length and ovl[sb2]-ovl[sb1] >= min_length and ovl[score_idx] >= score_thres]
+
+print("Filter: score_thres: %d, min_length: %d" % (score_thres, min_length))
+print("Num heuristic overlaps after filtering: %d" % len(all_heuristic_overlaps))
+
 # compare theoretical overlaps and heuristic overlaps
 
 ## theoretical ovl: [idx1, idx2, sa1, sa2, sb1, sb2, 0]
@@ -173,12 +205,6 @@ all_heuristic_overlaps.sort(key=itemgetter(0))
 
 # get ordered list of ref_id from hovls
 tmp_list = zip(*all_heuristic_overlaps)[0]
-
-hidx = 3			# idx where the read_id is, inside the heuristic ovl
-last_idx = 12		# idx where the extra 0 is placed, which is used to count FP
-if daligner == 1:
-	hidx = 1
-	last_idx = 7
 
 if ref == 0:
 	for tovl in all_theoretical_overlaps:
@@ -203,9 +229,8 @@ if ref == 0:
 			idx += 1
 		if fn == 1:
 			FN = FN + 1
-			#if FN < 100:
-			#	print tovl			
-
+			if FN < 500 and FN > 490:
+				print tovl
 	for hovl in all_heuristic_overlaps:
 		if hovl[last_idx] == 0:
 			FP = FP + 1
@@ -213,7 +238,6 @@ if ref == 0:
 else:
 	# fp is a list, 0: read not mapped, 1: read is mapped at least once
 	fp = [0] * len(list2)
-	score_thres = 1000
 	for hovl in all_heuristic_overlaps:
 		if daligner == 0:
 			read_id = hovl[1]
@@ -230,11 +254,9 @@ else:
 			ref_start = hovl[2]
 			ref_end = hovl[3]
 			score = ref_end - ref_start - hovl[6]
-		if fp[read_id] == 1:
-			continue
-		if gen_pos > ref_start-50 and gen_pos < ref_end and score > score_thres:
+		if gen_pos > ref_start-50 and gen_pos < ref_start+50:
 			TP += 1
-		elif score > score_thres:
+		else:
 			FP += 1
 			#if FP < 50:
 			#	print hovl

@@ -52,8 +52,8 @@ all_theoretical_overlaps = []		# contains all subread data, from the overlaps
 ## sax: position of start end stop of subread, wrt the read
 ##		margin_right is larger, because the right is more flexible due to errors
 max_length_subread = 0
-margin_left = 100		# amount of bases with which the theoretical overlap is extended (if possible)
-margin_right = 0.15		# observed max diff between original and erronous read length
+margin_left = 200		# amount of bases with which the theoretical overlap is extended (if possible)
+margin_right = 0.25		# observed max diff between original and erronous read length
 for (idx1,r1) in enumerate(list1):
 	for (idx2,r2) in enumerate(list2):
 		a1 = r1[1]
@@ -66,20 +66,28 @@ for (idx1,r1) in enumerate(list1):
 		o2 = min(a2, b2)
 		ovl_length = o2 - o1
 		#print("r1: %d, r2: %d, a1: %d, a2: %d, b1: %d, b2: %d, o1: %d, o2: %d, length: %d" % (idx1, idx2, a1, a2, b1, b2, o1, o2, ovl_length))
-		sa1 = max(a1, o1 - margin_left) - a1
+		"""sa1 = max(a1, o1 - margin_left) - a1
 		sa2 = min(min(a2, o2 + int(margin_right*ovl_length)) - a1, list1[idx1][3])
 		sb1 = max(b1, o1 - margin_left) - b1
 		sb2 = min(min(b2, o2 + int(margin_right*ovl_length)) - b1, list2[idx2][3])
+		"""
+		sa1 = a1
+		sa2 = a2
+		sb1 = b1
+		sb2 = b2
 		if sb2 <= sb1:
 			sb1 = sb2 - (sa2-sa1)
 		if sa2 <= sa1:
 			sa1 = sa2 - (sb2-sb1)
 		max_length_subread = max(max_length_subread, sa2-sa1)
 		max_length_subread = max(max_length_subread, sb2-sb1)
-		all_theoretical_overlaps.append([idx1, idx2, sa1, sa2, sb1, sb2])
+		#print("%d %d" % (sa2-sa1, sb2-sb1))
+		if ovl_length > 1000:
+			all_theoretical_overlaps.append([idx1, idx2, sa1, sa2, sb1, sb2])
 		#print("r1: %d, r2: %d, sa1: %d, sa2: %d, sb1: %d, sb2: %d" % (idx1, idx2, sa1, sa2, sb1, sb2))
 		#print()
 print("Max length subread: " + str(max_length_subread))
+print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))
 
 # generate subreads that should have overlaps
 f1 = open('../NPBSS/ecoliGenome.fa.npbss_simulated_CLR_1.fa','r')
@@ -101,8 +109,11 @@ for s in all_theoretical_overlaps:
 	read1 = all_reads1[idx1*2+1]
 	read2 = all_reads2[idx2*2+1]
 
-	subread1 = read1[sa1:sa2+1]
+	"""subread1 = read1[sa1:sa2+1]
 	subread2 = read2[sb1:sb2+1]
+	"""
+	subread1 = read1
+	subread2 = read2
 
 	fout1.write('>subread_%d_%d\n' % (idx1, sa1))	
 	l = list((subread1[0+i:70+i] for i in range(0, len(subread1), 70)))
@@ -122,8 +133,9 @@ fout2.close()
 
 # run sw_sse2/ksw to find perfect overlaps and scores
 print('Finding perfect overlaps')
-#cmd = './ksw -o -s -p -t 50 -a 5 -b 4 -q 10 -r 1 read.fasta ref.fasta > perfect_overlaps'
-cmd = './ksw -o -s -p -t 50 -a 1 -b 1 -q 1 -r 1 read.fasta ref.fasta > perfect_overlaps'
+cmd = './ksw -o -s -p -t 6000 -a 5 -b 4 -q 10 -r 1 read.fasta ref.fasta > perfect_overlaps'
+#cmd = './ksw -o -s -p -t 1600 -a 1 -b 1 -q 1 -r 1 read.fasta ref.fasta > perfect_overlaps'
+print(cmd)
 subprocess.call(cmd, shell=True, cwd='../sw_sse2/')
 
 # read perfect overlaps
@@ -155,7 +167,7 @@ for line in f1:
 		print('WARNING this darwin overlap does not have enough information')
 		print(line)
 		print(l)
-		l.append(0)
+	l.append(0)
 	all_heuristic_overlaps.append(l)
 
 f1.close()
@@ -164,7 +176,7 @@ f1.close()
 
 # compare perfect overlaps and heuristic overlaps
 n = 0
-## add sa1 and sb1 to the report perfect positions
+## add sa1 and sb1 to the report perfect positions in terms of genome coordinates
 ## perfect_overlap after:
 ## read_id, ref_id, ref_start, ref_end, read_start, read_end, score
 for povl in all_perfect_overlaps:
@@ -213,7 +225,7 @@ for povl in all_perfect_overlaps:
 				#print("ref_id, read_id, ref_start, ref_end, read_start, read_end, score")
 	if fn == 1:
 		FN = FN + 1
-		print povl
+		#print povl
 
 for hovl in all_heuristic_overlaps:
 	if hovl[13] == 0:
@@ -232,4 +244,5 @@ print("c3: %d" % c3)
 print("FN: %d" % FN)
 print("FP: %d" % FP)
 
-
+print("sensitivity: %f" % (float(n)/(n+FN)))
+print("specificity: %f" % (float(n)/(n+FP)))

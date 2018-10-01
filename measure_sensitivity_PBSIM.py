@@ -38,10 +38,12 @@ if ref == 0:
 
 # analyze all reads
 # data header: id, startpos in genome, length of overlap
-#f1 = open('../PBSIM/src/sd_0001.fasta','r')
-#f2 = open('../PBSIM/src/sd_0002.fasta','r')
-f1 = open('reference.fasta','r')
-f2 = open('reads.fasta','r')
+if daligner == 0:
+	f1 = open('reference.fasta','r')
+	f2 = open('reads.fasta','r')
+else:
+	f1 = open('../PBSIM/src/sd_0001.fasta','r')
+	f2 = open('../PBSIM/src/sd_0002.fasta','r')
 list1 = []		# contains info from f1
 list2 = []		# contains info from f2
 
@@ -167,8 +169,8 @@ print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 # filter out some heuristic overlaps
 ## example criteria: length of overlap, score
-score_thres = 00
-min_length = 00
+score_thres = 900
+min_length = 950
 
 hidx = 3			# idx where the read_id is, inside the heuristic ovl
 last_idx = 12		# idx where the extra 0 is placed, which is used to count FP
@@ -179,6 +181,7 @@ if ref == 1:
 	min_length = 0
 	if daligner == 1:
 		last_idx = 999
+		sa1 = 2; sa2 = 3; sb1 = 4; sb2 = 5; score_idx = -1
 	else:
 		last_idx = 10
 		sa1 = 4; sa2 = 5; sb1 = 6; sb2 = 7; score_idx = 8
@@ -189,10 +192,19 @@ else:
 		sa1 = 2; sa2 = 3; sb1 = 4; sb2 = 5; score_idx = 6
 
 
-all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[sa2]-ovl[sa1] >= min_length and ovl[sb2]-ovl[sb1] >= min_length and ovl[score_idx] >= score_thres]
+all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[sa2]-ovl[sa1] >= min_length and ovl[sb2]-ovl[sb1] >= min_length]
+if score_idx == -1:
+	# daligner score = length ovl - diffs
+	all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[sa2] - ovl[sa1] - ovl[6] >= score_thres]
+else:
+	all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[score_idx] >= score_thres]
 
 print("Filter: score_thres: %d, min_length: %d" % (score_thres, min_length))
 print("Num heuristic overlaps after filtering: %d" % len(all_heuristic_overlaps))
+
+if len(all_heuristic_overlaps) == 0:
+	print("WARNING no heuristic overlaps left, filter is probably too strict")
+	exit()
 
 # compare theoretical overlaps and heuristic overlaps
 
@@ -236,15 +248,41 @@ if ref == 0:
 			FP = FP + 1
 			#print hovl
 else:
-	# fp is a list, 0: read not mapped, 1: read is mapped at least once
+	# fp is a list
+	## 0: read not mapped
+	## 1: read is mapped to the correct spot
 	fp = [0] * len(list2)
-	for hovl in all_heuristic_overlaps:
+	unique_hovls = []								# contains the hovl with the highest score, for each readID
+	all_heuristic_overlaps.sort(key=itemgetter(1))	# sort by readID
+	readID = all_heuristic_overlaps[0][1]
+	maxScore = -1
+	maxScoreIdx = 0
+	for i,h in enumerate(all_heuristic_overlaps):
+		if h[1] == readID:
+			if daligner == 1:
+				score = h[sa2]-h[sa1]-h[6]
+			else:
+				score = h[8]
+			if score > maxScore:
+				maxScore = score
+				maxScoreIdx = i
+		else:
+			t = all_heuristic_overlaps[maxScoreIdx]
+			#print("ID: %d, idx: %d, %s, %s" % (readID, maxScoreIdx, str(t), str(h)))
+			unique_hovls.append(all_heuristic_overlaps[maxScoreIdx])
+			readID = h[1]
+			maxScoreIdx = i
+			maxScore = -1
+
+	print("Hovls with unique readID: %d" % len(unique_hovls))#"""
+
+	for hovl in unique_hovls:
+	#for hovl in all_heuristic_overlaps:
 		if daligner == 0:
 			read_id = hovl[1]
 			gen_pos = hovl[2]
 			ref_start = hovl[4]
 			ref_end = hovl[5]
-			score = hovl[8]
 		else:
 			if len(hovl) != 8:
 				print("ERROR daligner too little info")
@@ -253,7 +291,6 @@ else:
 			gen_pos = list2[read_id][1]
 			ref_start = hovl[2]
 			ref_end = hovl[3]
-			score = ref_end - ref_start - hovl[6]
 		if gen_pos > ref_start-50 and gen_pos < ref_start+50:
 			TP += 1
 		else:
@@ -264,14 +301,15 @@ else:
 
 	FN = len(list2) - sum(fp)
 
-	"""i = 0
+	i = 0
 	for (idx,f) in enumerate(fp):
 		if f == 0:
-			if i > 400:
+			if i > 100:
 				print list2[idx]
 			i += 1
-		if i > 410:
-			break"""
+		if i > 110:
+			break#"""
+
 
 print("TP: %d" % TP)
 print("FN: %d" % FN)

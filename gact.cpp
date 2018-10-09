@@ -477,7 +477,7 @@ io_lock.unlock();//*/
 #endif
 
 #ifdef GPU
-        int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
+        int *outs = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
         BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
@@ -489,7 +489,7 @@ io_lock.unlock();//*/
         t1 = std::chrono::high_resolution_clock::now();
 #endif
 
-        std::queue<int> q;
+        /*std::queue<int> q;
         int off = 0;
         BT_statess.clear();
         for(int t = 0; t < BATCH_SIZE; ++t){
@@ -500,7 +500,7 @@ io_lock.unlock();//*/
             }
             off += (2 * tile_size);
             BT_statess.push_back(q);
-        }
+        }//*/
 
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
@@ -511,24 +511,29 @@ io_lock.unlock();//*/
             int i = 0;
             int j = 0;
 
-            std::queue<int> BT_states = BT_statess[t];
+            //std::queue<int> BT_states = BT_statess[t];
+            int *out = outs + 2*t*tile_size;
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
-            int tile_score = BT_states.front();
+            //int tile_score = BT_states.front();
+            int tile_score = out[0];
             int first_tile_score;
-            BT_states.pop();
+            //BT_states.pop();
+//printf("T%d tile score: %d\n", t, tile_score);
 //printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
                 if (first_tile) {
-                    ref_pos = ref_pos - ref_tile_length + BT_states.front();
-                    BT_states.pop();
-                    query_pos = query_pos - query_tile_length + BT_states.front();
-                    BT_states.pop();
+                    ref_pos = ref_pos - ref_tile_length + out[3];
+                    //ref_pos = ref_pos - ref_tile_length + BT_states.front();
+                    //BT_states.pop();
+                    query_pos = query_pos - query_tile_length + out[4];
+                    //query_pos = query_pos - query_tile_length + BT_states.front();
+                    //BT_states.pop();
                     c->ref_bpos = ref_pos;
                     c->query_bpos = query_pos;
                     c->first_tile_score = tile_score;
@@ -540,12 +545,17 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                j = BT_states.front();
+                /*j = BT_states.front();
                 BT_states.pop();
                 i = BT_states.front();
                 BT_states.pop();
                 if(BT_states.size() != 0){
                     first_tile = false;                    
+                }//*/
+                j = out[1];
+                i = out[2];
+                if(i + j > 0){
+                    first_tile = false;
                 }//*/
                 /*while (!BT_states.empty()) {
                     first_tile = false;
@@ -574,10 +584,12 @@ io_lock.unlock();//*/
                 query_pos -= (i);
             }else{      // else forward
                 if (first_tile) {
-                    ref_pos = ref_pos + ref_tile_length - BT_states.front();
-                    BT_states.pop();
-                    query_pos = query_pos + query_tile_length - BT_states.front();
-                    BT_states.pop();
+                    ref_pos = ref_pos + ref_tile_length - out[3];
+                    //ref_pos = ref_pos + ref_tile_length - BT_states.front();
+                    //BT_states.pop();
+                    query_pos = query_pos + query_tile_length - out[4];
+                    //query_pos = query_pos + query_tile_length - BT_states.front();
+                    //BT_states.pop();
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
                         //terminate[t] = 2;
@@ -587,13 +599,18 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                j = BT_states.front();
+                /*j = BT_states.front();
                 BT_states.pop();
                 i = BT_states.front();
-                BT_states.pop();//*/
+                BT_states.pop();
                 if(BT_states.size() != 0){
                     first_tile = false;                    
-                }
+                }//*/
+                j = out[1];
+                i = out[2];
+                if(i + j > 0){
+                    first_tile = false;
+                }//*/
                 /*while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();

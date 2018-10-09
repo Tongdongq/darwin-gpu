@@ -311,7 +311,7 @@ if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
-        i = 1;
+        i = 0;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
 //if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
@@ -319,12 +319,12 @@ if(1){
         if(first){
             i_curr = maxXY_y;
             j_curr = maxXY_x;
-            out[i++] = maxHH;
-            out[i++] = i_curr+1;
-            out[i++] = j_curr+1;
+            out[0] = maxHH;
+            out[3] = i_curr+1;
+            out[4] = j_curr+1;
         }else{
             //out[i++] = 32767;
-            out[i++] = pos_score;
+            out[0] = pos_score;
             //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
@@ -337,7 +337,7 @@ if(1){
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
-        out[i++] = state;
+        //out[i++] = state;
 //if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
@@ -371,14 +371,9 @@ if(1){
     };
 
 
-        out[0] = i - 1+5;
-        if(!first){
-            out[2] = i_steps;
-            out[3] = j_steps;
-        }else{
-            out[4] = i_steps;
-            out[5] = j_steps;
-        }//*/
+        //out[0] = i - 1 + 5;
+        out[1] = i_steps;
+        out[2] = j_steps;
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);

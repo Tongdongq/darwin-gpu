@@ -489,19 +489,6 @@ io_lock.unlock();//*/
         t1 = std::chrono::high_resolution_clock::now();
 #endif
 
-        /*std::queue<int> q;
-        int off = 0;
-        BT_statess.clear();
-        for(int t = 0; t < BATCH_SIZE; ++t){
-            q = std::queue<int>();
-            //printf("T%d has %d elements\n", t, (int)out[off]);
-            for(int i = 1; i <= out[off]; ++i){
-                q.push(out[i+off]);
-            }
-            off += (2 * tile_size);
-            BT_statess.push_back(q);
-        }//*/
-
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
@@ -512,17 +499,14 @@ io_lock.unlock();//*/
             int j = 0;
             int idx = 5;
 
-            //std::queue<int> BT_states = BT_statess[t];
             int *out = outs + 2*t*tile_size;
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
-            //int tile_score = BT_states.front();
             int tile_score = out[0];
             int first_tile_score;
-            //BT_states.pop();
 //printf("T%d tile score: %d\n", t, tile_score);
 //printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
             // if reverse
@@ -530,11 +514,7 @@ io_lock.unlock();//*/
                 //printf("T%d tb in reverse dir\n");
                 if (first_tile) {
                     ref_pos = ref_pos - ref_tile_length + out[3];
-                    //ref_pos = ref_pos - ref_tile_length + BT_states.front();
-                    //BT_states.pop();
                     query_pos = query_pos - query_tile_length + out[4];
-                    //query_pos = query_pos - query_tile_length + BT_states.front();
-                    //BT_states.pop();
                     c->ref_bpos = ref_pos;
                     c->query_bpos = query_pos;
                     c->first_tile_score = tile_score;
@@ -554,8 +534,6 @@ io_lock.unlock();//*/
                 int state;
                 while ((state = out[idx++]) != -1) {
                     first_tile = false;
-                    //int state = BT_states.front();
-                    //BT_states.pop();
                     if (state == M) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
@@ -580,11 +558,7 @@ io_lock.unlock();//*/
             }else{      // else forward
                 if (first_tile) {
                     ref_pos = ref_pos + ref_tile_length - out[3];
-                    //ref_pos = ref_pos + ref_tile_length - BT_states.front();
-                    //BT_states.pop();
                     query_pos = query_pos + query_tile_length - out[4];
-                    //query_pos = query_pos + query_tile_length - BT_states.front();
-                    //BT_states.pop();
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
                         //terminate[t] = 2;
@@ -600,11 +574,8 @@ io_lock.unlock();//*/
                     first_tile = false;
                 }//*/
                 int state;
-                //while (!BT_states.empty()) {
                 while ((state = out[idx++]) != -1){
                     first_tile = false;
-                    //int state = BT_states.front();
-                    //BT_states.pop();
                     if (state == M) {
                         aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
                         aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);

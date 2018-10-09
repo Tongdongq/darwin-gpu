@@ -314,7 +314,6 @@ if(1){
         i = 5;
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
-//if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
 
         if(first){
             i_curr = maxXY_y;
@@ -323,9 +322,7 @@ if(1){
             out[3] = i_curr+1;
             out[4] = j_curr+1;
         }else{
-            //out[i++] = 32767;
             out[0] = pos_score;
-            //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
         int idx = i_curr*row_len + j_curr;
@@ -338,12 +335,10 @@ if(1){
             break;
         }
         out[i++] = state;
-//if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
             idx *= __X;
             //char t = dir_matrix[idx];
-//if(tid==0)printf("state M: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = dir_matrix[idx] % 4;//*/
             //state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;
@@ -354,7 +349,6 @@ if(1){
         else if (state == I) {
             //int idx = (i_curr*row_len+j_curr)*__X;
             //char t = dir_matrix[idx];
-//if(tid==0)printf("state I: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;
@@ -362,7 +356,6 @@ if(1){
         else if (state == D) {
             //int idx = (i_curr*row_len+j_curr)*__X;
             //char t = dir_matrix[idx];
-//if(tid==0)printf("state D: %d, i_curr: %d, j_curr: %d, %p\n", t, i_curr, j_curr, dir_matrix+idx);
             //state = (dir_matrix[idx] & (2 << DELETE_OP)) ? M : D;
             state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
             j_curr--;
@@ -370,8 +363,6 @@ if(1){
         }
     };
 
-
-        //out[0] = i - 1 + 5;
         out[i] = -1;
         out[1] = i_steps;
         out[2] = j_steps;

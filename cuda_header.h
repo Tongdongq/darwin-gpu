@@ -260,49 +260,23 @@ if(tid==2){
                             //h[m] = max(h[m], e);
                             //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
 
-                            /*if(h[m] == maxHH){  
-                                if(ii > maxXY_y){
-                                    maxXY_y = ii;
-                                    maxXY_x = jj;
-                                    maxHH = h[m];
-                                }
-                                if(ii == maxXY_y){
-                                    if(jj > maxXY_x){
-                                        maxXY_y = ii;
-                                        maxXY_x = jj;
-                                        maxHH = h[m];
-                                    }
-                                }
-                            }
                             if(h[m] > maxHH){
                                 maxXY_y = ii;
                                 maxXY_x = jj;
-                                maxHH = h[m]; 
+                                maxHH = h[m];
                             }//*/
+                            /*asm("{\n\t");
+                            asm(" .reg .pred p;\n\t");
+                            asm(" setp.gt.s32 p, %0, %1;\n\t" :: "r" (h[m]), "r" (maxHH));
+                            asm(" selp.s32 %0, %1, %0, p;\n\t" : "+r" (maxXY_y) : "r" (ii));
+                            asm(" selp.s32 %0, %1, %0, p;\n\t" : "+r" (maxXY_x) : "r" (jj));
+                            asm(" selp.s32 %0, %1, %0, p;\n\t" : "+r" (maxHH) : "r" (h[m]));
+                            asm("}");//*/
 
                             p[m] = h[m-1];
                             int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
-
-                            asm("{\n\t"
-                                " .reg .pred p, q, r, s, t;\n\t"
-                                " setp.eq.s32 p, %3, %0;\n\t"   // if h[m] == maxHH
-                                " setp.gt.s32 q, %4, %1;\n\t"   // if ii > maxXY_y
-                                " setp.eq.s32 r, %4, %1;\n\t"   // if ii == maxXY_y
-                                " setp.gt.s32 s, %5, %2;\n\t"   // if jj > maxXY_x
-                                " setp.gt.s32 t, %3, %0;\n\t"   // if h[m] > maxHH
-                                " and.pred r, r, s;\n\t"        // r = r && s
-                                " or.pred q, q, r;\n\t"         // q = q || r
-                                " and.pred p, p, q;\n\t"        // p = p && q
-                                " or.pred t, t, p;\n\t"         // t = t || p
-                                " selp.s32 %1, %4, %1, t;\n\t"  // if t: maxXY_y = ii
-                                " selp.s32 %2, %5, %2, t;\n\t"  // if t: maxXY_x = jj
-                                " selp.s32 %0, %3, %0, t;\n\t"  // if t: maxHH = h[m]
-                                "}"
-                                : "+r" (maxHH), "+r" (maxXY_y), "+r" (maxXY_x)
-                                : "r" (h[m]), "r" (ii), "r" (jj)
-                                );//*/
 
 if(tid==0){
     if(ii > 240 && ii < 270 && jj > 110 && jj < 150){
@@ -397,7 +371,14 @@ if(1){
     };
 
 
-        out[0] = i - 1;
+        out[0] = i - 1+5;
+        if(!first){
+            out[2] = i_steps;
+            out[3] = j_steps;
+        }else{
+            out[4] = i_steps;
+            out[5] = j_steps;
+        }//*/
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);

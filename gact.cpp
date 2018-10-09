@@ -265,13 +265,13 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
     printf("GACT_Batch, num_calls: %d, calls: %p, complement: %d\n", num_calls, &calls, complement);
 
     //output of the function
-    std::vector<std::string> aligned_ref_strs(num_calls);
-    std::vector<std::string> aligned_query_strs(num_calls);
+    //std::vector<std::string> aligned_ref_strs(num_calls);
+    //std::vector<std::string> aligned_query_strs(num_calls);
 
-    for(int i = 0; i < num_calls; ++i){
+    /*for(int i = 0; i < num_calls; ++i){
         aligned_ref_strs[i].reserve(200);
         aligned_query_strs[i].reserve(200);
-    }
+    }*/
 
     std::vector<int> first_tile_scores(num_calls);
 
@@ -355,7 +355,7 @@ int batch_no = 0;
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
                         int total_score = 0;
-                        bool open = true;
+                        /*bool open = true;
                         for (uint32_t j = 0; j < aligned_ref_strs[callidx].length(); j++) {
                             char ref_nt = aligned_ref_strs[callidx][j];
                             char query_nt = aligned_query_strs[callidx][j];
@@ -370,7 +370,7 @@ if(c->ref_id == 98 && c->query_id == 3){
                                 total_score += (query_nt == ref_nt) ? match_score : mismatch_score;
                                 open = true;
                             }
-                        }
+                        }*/
 /*io_lock.lock();
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
@@ -540,28 +540,36 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                while (!BT_states.empty()) {
+                j = BT_states.front();
+                BT_states.pop();
+                i = BT_states.front();
+                BT_states.pop();
+                if(BT_states.size() != 0){
+                    first_tile = false;                    
+                }//*/
+                /*while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();
                     BT_states.pop();
                     if (state == M) {
-                        aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
-                        aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
+                        //aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
+                        //aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
                         i += 1;
                         j += 1;
                     }
                     if (state == I) {
-                        aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
-                        aligned_query_strs[callidx].insert(0, 1, '-');
+                        //aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
+                        //aligned_query_strs[callidx].insert(0, 1, '-');
                         j += 1;
                     }
                     if (state == D) {
-                        aligned_ref_strs[callidx].insert(0, 1, '-');
-                        aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
+                        //aligned_ref_strs[callidx].insert(0, 1, '-');
+                        //aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
                         i += 1;
                     }
-                }
+                }//*/
                 //printf("T%d done with tb in rev dir, i: %d, j: %d\n", t, i, j);
+                //printf("T%d done with tb in rev dir, i: %d, j: %d, first: %d\n", t, i, j, first_tile);
                 ref_pos -= (j);
                 query_pos -= (i);
             }else{      // else forward
@@ -579,27 +587,34 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                while (!BT_states.empty()) {
+                j = BT_states.front();
+                BT_states.pop();
+                i = BT_states.front();
+                BT_states.pop();//*/
+                if(BT_states.size() != 0){
+                    first_tile = false;                    
+                }
+                /*while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();
                     BT_states.pop();
                     if (state == M) {
-                        aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
-                        aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);
+                        //aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
+                        //aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);
                         i += 1;
                         j += 1;
                     }
                     if (state == I) {
-                        aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
-                        aligned_query_strs[callidx] += '-';
+                        //aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
+                        //aligned_query_strs[callidx] += '-';
                         j += 1;
                     }
                     if (state == D) {
-                        aligned_ref_strs[callidx] += '-';
-                        aligned_query_strs[callidx] += reads_seqs_p->at(c->query_id)[query_pos + i];
+                        //aligned_ref_strs[callidx] += '-';
+                        //aligned_query_strs[callidx] += reads_seqs_p->at(c->query_id)[query_pos + i];
                         i += 1;
                     }
-                }
+                }//*/
                 ref_pos += (j);
                 query_pos += (i);
             }   // end traceback

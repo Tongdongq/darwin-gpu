@@ -501,7 +501,12 @@ io_lock.unlock();//*/
             int j = 0;
             int idx = 5;
 
+#ifdef SCORE
             int *out = outs + 2*t*tile_size;
+#else
+            int *out = outs + 5*t;
+            //int *out = outs + 2*t*tile_size;
+#endif
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;

@@ -275,7 +275,11 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
+#ifdef SCORE
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#else
+  cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 5, cudaMemcpyDeviceToHost));
+#endif // SCORE
 #else // GASAL
   cudaStream_t stream = s->stream->stream;
   cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
@@ -293,7 +297,11 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
+#ifdef SCORE
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#else
+  cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 5, cudaMemcpyDeviceToHost));
+#endif // SCORE
 #endif // GASAL
 #else // STREAM
   cudaSafeCall(cudaMemcpy((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice));
@@ -311,8 +319,12 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaDeviceSynchronize());
 
+#ifdef SCORE
   cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
-#endif
+#else
+  cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 5, cudaMemcpyDeviceToHost));
+#endif // SCORE
+#endif // STREAM
 
 
   return outs_b;
@@ -334,6 +346,11 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
 #ifdef GASAL
   int size_matrices = (tile_size+2)*(tile_size+2);
+#ifdef SCORE
+  int size_outs = 2*tile_size;
+#else
+  int size_outs = 5;
+#endif // SCORE
 #else // GASAL
 #ifndef COMPRESS_DIR
   int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
@@ -362,7 +379,7 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_query_seqs_d), BATCH_SIZE*tile_size));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*size_outs));
 #else
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
 #endif

@@ -1,5 +1,5 @@
 
-#CFLAGS = -O4 -g
+#CFLAGS = -O0 -g
 CFLAGS = -O4
 
 # linker flags, -pg enables use of gprof
@@ -7,6 +7,7 @@ CFLAGS = -O4
 LFLAGS =
 
 #NCFLAGS = -O0 -G -Xptxas -v
+#NCFLAGS = -O3 -Xptxas -v -lineinfo
 NCFLAGS = -O3 -Xptxas -v
 
 CFLAGS += $(options)

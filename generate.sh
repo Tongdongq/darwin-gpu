@@ -11,7 +11,7 @@ t=1
 
 if [[ "$1" == *"PBSIM"* ]]; then
 	cd ../PBSIM/src
-	./run.sh 8
+	./run.sh 20
 	./prepare_reads.py
 	t=0
 	printf "\nDon't forget to convert the PBSIM reads\n\n"

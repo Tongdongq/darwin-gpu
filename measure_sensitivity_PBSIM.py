@@ -4,7 +4,7 @@
 # analyze reported overlaps
 # compare ideal and reported overlaps
 
-import re, subprocess, bisect, sys
+import re, subprocess, bisect, sys, time, os
 from operator import itemgetter
 
 # parse and extract integers
@@ -93,7 +93,7 @@ all_theoretical_overlaps = []
 ## this approach took 2m17 to find tovls, as oppose to 1m29
 
 if ref == 0:
-	for (idx1, r1) in enumerate(list1):
+	"""for (idx1, r1) in enumerate(list1):
 		if idx1 % 4000 == 0:
 			print('idx1: %d' % idx1)
 		for (idx2, r2) in enumerate(list2):
@@ -125,8 +125,15 @@ if ref == 0:
 		fout.write(str(tovl))
 		fout.write('\n')
 
+	fout.close()#"""
+	# above part to calculate tovls, below part to read precalculated tovls from file
+	print("File with tovls created %s" % time.ctime(os.path.getmtime('w_theoretical_ovls')))
+	fout = open('w_theoretical_ovls','r')
+	for line in fout:
+		all_theoretical_overlaps.append(parse(line))
 	fout.close()
-
+	print("Read tovls from file")
+	print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))#"""
 
 # analyze reported overlaps by heuristic aligner
 ## darwin:
@@ -169,8 +176,8 @@ print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 # filter out some heuristic overlaps
 ## example criteria: length of overlap, score
-score_thres = 900
-min_length = 950
+score_thres = 00
+min_length = 900
 
 hidx = 3			# idx where the read_id is, inside the heuristic ovl
 last_idx = 12		# idx where the extra 0 is placed, which is used to count FP
@@ -241,8 +248,8 @@ if ref == 0:
 			idx += 1
 		if fn == 1:
 			FN = FN + 1
-			if FN < 500 and FN > 490:
-				print tovl
+			#if FN < 500 and FN > 490:
+			#	print tovl
 	for hovl in all_heuristic_overlaps:
 		if hovl[last_idx] == 0:
 			FP = FP + 1
@@ -301,7 +308,7 @@ else:
 
 	FN = len(list2) - sum(fp)
 
-	i = 0
+	"""i = 0
 	for (idx,f) in enumerate(fp):
 		if f == 0:
 			if i > 100:

@@ -39,6 +39,8 @@ extern std::vector<long long int> reference_lengths;
 extern std::vector<std::string> reads_seqs;
 extern std::vector<std::string> rev_reads_seqs;
 extern std::vector<long long int> reads_lengths;
+extern std::vector<std::vector<std::string> > reference_descrips;
+extern std::vector<std::vector<std::string> > reads_descrips;
 
 // not needed, since results are printed to a file
 //extern std::mutex io_lock;
@@ -398,15 +400,19 @@ if(1){
     }printf("\n");
 }
 io_lock.unlock();//*/
+                    //if(ref_pos - c->ref_bpos > 100 && query_pos - c->query_bpos > 100 && total_score > 100){
                         fout
-                        << "ref_id: " << c->ref_id
-                        << ", query_id: " << c->query_id
+                        << "ref_id: " << reference_descrips[c->ref_id][0]
+                        << ", query_id: " << reads_descrips[c->query_id][0]
+                        //<< "ref_id: " << c->ref_id
+                        //<< ", query_id: " << c->query_id
                         << ", ab: " << c->ref_bpos
                         << ", ae: " << ref_pos
                         << ", bb: " << c->query_bpos
                         << ", be: " << query_pos
                         << ", score: " << total_score
                         << ", comp: " << complement << std::endl;//*/
+                    //}
 
                         calls_done++;
                         assignments[t] = next_callidx;

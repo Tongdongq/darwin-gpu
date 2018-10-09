@@ -430,6 +430,8 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         cond_var.wait(sync_lock, []{return t_done==num_threads;});
     }
     sync_lock.unlock();
+    
+    gettimeofday(&begin, NULL);
 
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend, fout);

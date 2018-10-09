@@ -10,24 +10,25 @@ function bench_and_compare {
 }
 
 function compare {
-	sleep 4h
-	./z_compile.sh
-	./run.sh 8 | grep "ref_id" | sort > tg
-	./z_compile.sh GPU CMAT CBASES 64 STREAM
-	./run.sh 8 48 64 | grep "ref_id" | sort > ts
-	diff tg ts
-	./run.sh 1 256 64 | grep "ref_id" | sort > ts
-	diff tg ts
+	./z_compile.sh GPU GASAL 64 STREAM CMAT
+	./run.sh 8 32 64
+	cat darwin.*.out | sort > tss
+	diff tss tg_50MB | head
 }
 
 function debug {
-	./z_compile.sh GPU CMAT CBASES 64 STREAM STABLE
+	./z_compile.sh GPU CMAT CBASES 64 STREAM
 	./run.sh 1 1 32 > tg
 	./z_compile.sh GPU CMAT CBASES 64 STREAM
 	./run.sh 1 1 32 > ts
 }
 
-debug
+function profile {
+	sleep 4h
+	./profile.sh f 1 256 64
+}
+
+#compare
 
 
 

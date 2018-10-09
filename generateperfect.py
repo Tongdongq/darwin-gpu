@@ -8,12 +8,12 @@ def generate(length):
 	return ''.join(random.choice('CGTA') for _ in xrange(length))
 
 
-"""
+
 # generate pairs of reads with an overlap
-num_reads = 40000
-length_read = 1500
-min_overlap = 1000
-max_overlap = 1000
+"""num_reads = 5000
+length_read = 10000
+min_overlap = 8000
+max_overlap = 8000
 
 f1 = open('reference.fasta', 'w')
 f2 = open('reads.fasta', 'w')
@@ -42,11 +42,11 @@ for i in range(0, num_reads):
 
 f1.close()
 f2.close()
-"""
+#"""
 
 
 # generate a genome and reads, to do ref-based alignment
-"""num_reads = 1000
+"""num_reads = 4000
 length_read = 1500
 genome_length = 4000000
 
@@ -75,7 +75,7 @@ f2.close()
 #"""
 
 # generate a genome, and two sets of reads, to do de-novo alignment
-num_reads = 1000
+num_reads = 5000
 length_read = 10000
 genome_length = 4000000
 genome = generate(genome_length)

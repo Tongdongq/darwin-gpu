@@ -334,7 +334,9 @@ if(1){
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
+#ifdef SCORE
         out[i++] = state;
+#endif
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
             idx *= __X;

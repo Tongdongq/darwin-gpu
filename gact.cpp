@@ -355,6 +355,7 @@ int batch_no = 0;
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
                         int total_score = 0;
+#ifdef SCORE
                         bool open = true;
                         for (uint32_t j = 0; j < aligned_ref_strs[callidx].length(); j++) {
                             char ref_nt = aligned_ref_strs[callidx][j];
@@ -371,6 +372,7 @@ if(c->ref_id == 98 && c->query_id == 3){
                                 open = true;
                             }
                         }
+#endif
 /*io_lock.lock();
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
@@ -526,11 +528,13 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                /*j = out[1];
+#ifndef SCORE
+                j = out[1];
                 i = out[2];
                 if(i + j > 0){
                     first_tile = false;
-                }//*/
+                }
+#else
                 int state;
                 while ((state = out[idx++]) != -1) {
                     first_tile = false;
@@ -550,7 +554,8 @@ io_lock.unlock();//*/
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
                         i += 1;
                     }
-                }//*/
+                }
+#endif
                 //printf("T%d done with tb in rev dir, i: %d, j: %d\n", t, i, j);
                 //printf("T%d done with tb in rev dir, i: %d, j: %d, first: %d\n", t, i, j, first_tile);
                 ref_pos -= (j);
@@ -568,11 +573,13 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
-                /*j = out[1];
+#ifndef SCORE
+                j = out[1];
                 i = out[2];
                 if(i + j > 0){
                     first_tile = false;
-                }//*/
+                }
+#else
                 int state;
                 while ((state = out[idx++]) != -1){
                     first_tile = false;
@@ -592,7 +599,8 @@ io_lock.unlock();//*/
                         aligned_query_strs[callidx] += reads_seqs_p->at(c->query_id)[query_pos + i];
                         i += 1;
                     }
-                }//*/
+                }
+#endif
                 ref_pos += (j);
                 query_pos += (i);
             }   // end traceback

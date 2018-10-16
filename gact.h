@@ -52,6 +52,9 @@ typedef struct {
   uint32_t *packed_query_seqs_d;
   int32_t *ref_offsets_d;
   int32_t *query_offsets_d;
+#ifdef GLOBAL
+  short *global_d;
+#endif
 #endif
   const char *ref_seqs_d;
   const char *query_seqs_d;

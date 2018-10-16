@@ -265,6 +265,7 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
+#ifndef GLOBAL
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
@@ -272,6 +273,15 @@ int* Align_Batch_GPU( \
     query_poss_d, ref_poss_d, \
     outs_d, \
     firsts_d, (char*)(s->matrices_d));
+#else
+  gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
+    packed_query_seqs_d, packed_ref_seqs_d, \
+    query_lens_d, ref_lens_d, \
+    query_offsets_d, ref_offsets_d, \
+    query_poss_d, ref_poss_d, \
+    outs_d, \
+    firsts_d, (char*)(s->matrices_d), s->global_d);
+#endif
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
@@ -370,6 +380,9 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].matrices_d), BATCH_SIZE*size_matrices));
+#ifdef GLOBAL
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].global_d), BATCH_SIZE*3*sizeof(short)*tile_size));
+#endif
 #ifdef STREAM
     (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
     cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));

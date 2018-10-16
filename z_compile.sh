@@ -37,6 +37,8 @@ do
 		options="$options -D COALESCE_PACKED_BASES";;
 	"SCORE")
 		options="$options -D SCORE";;
+	"GLOBAL")
+		options="$options -D GLOBAL";;
 	"32")
 		maxregcount=32;;
 	"64")

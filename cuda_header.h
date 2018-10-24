@@ -52,7 +52,7 @@ enum states {Z, D, I, M};
 
 #define INF (1 << 29)
 
-#define MAX_SEQ_LEN 324
+#define MAX_SEQ_LEN 320
 
 __global__ void gasal_pack_kernel( \
     uint32_t* unpacked_query_batch, uint32_t* unpacked_target_batch, \

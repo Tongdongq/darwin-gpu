@@ -13,6 +13,7 @@ def parse(line):
 
 daligner = 0
 ref = 0
+extra = 1 # if extra is 1, add the reverse of the AB overlap (BA), should increase sensitivity, and halve specificity
 
 if len(sys.argv) > 1:
 	arg = sys.argv[1]
@@ -93,7 +94,7 @@ all_theoretical_overlaps = []
 ## this approach took 2m17 to find tovls, as oppose to 1m29
 
 if ref == 0:
-	"""for (idx1, r1) in enumerate(list1):
+	for (idx1, r1) in enumerate(list1):
 		if idx1 % 4000 == 0:
 			print('idx1: %d' % idx1)
 		for (idx2, r2) in enumerate(list2):
@@ -127,7 +128,7 @@ if ref == 0:
 
 	fout.close()#"""
 	# above part to calculate tovls, below part to read precalculated tovls from file
-	print("File with tovls created %s" % time.ctime(os.path.getmtime('w_theoretical_ovls')))
+	"""print("File with tovls created %s" % time.ctime(os.path.getmtime('w_theoretical_ovls')))
 	fout = open('w_theoretical_ovls','r')
 	for line in fout:
 		all_theoretical_overlaps.append(parse(line))
@@ -157,6 +158,9 @@ if daligner == 0:
 			print(l)
 		l.append(0)
 		all_heuristic_overlaps.append(l)
+		if extra == 1:
+			l = [l[3],l[4],l[5],l[0],l[1],l[2],l[8],l[9],l[6],l[7],l[10],l[11],0]
+			all_heuristic_overlaps.append(l)
 	f1.close()
 else:
 	print('Reading daligner overlaps')
@@ -176,8 +180,8 @@ print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 # filter out some heuristic overlaps
 ## example criteria: length of overlap, score
-score_thres = 00
-min_length = 900
+score_thres = 0
+min_length = 00
 
 hidx = 3			# idx where the read_id is, inside the heuristic ovl
 last_idx = 12		# idx where the extra 0 is placed, which is used to count FP

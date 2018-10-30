@@ -222,8 +222,10 @@ void GACT (char *ref_str, char *query_str, \
     std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
     fout
-    << "ref_id: " << ref_id
-    << ", query_id: " << query_id
+    //<< "ref_id: " << ref_id
+    //<< ", query_id: " << query_id
+    << "ref_id: " << reference_descrips[ref_id][0]
+    << ", query_id: " << reads_descrips[query_id][0]
     << ", ab: " << abpos
     << ", ae: " << ref_pos
     << ", bb: " << bbpos

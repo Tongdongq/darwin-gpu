@@ -232,7 +232,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_for[idx].first = 1;
             GACT_calls_for[idx].reverse = 1;
 #else   // perform GACT immediately
-            /*GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
+            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
@@ -274,7 +274,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_rev[idx].first = 1;
             GACT_calls_rev[idx].reverse = 1;
 #else   // perform GACT immediately
-            /*GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
+            GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \

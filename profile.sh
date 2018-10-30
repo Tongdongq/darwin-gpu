@@ -33,18 +33,18 @@ fi
 sleep 1
 
 METRICS="--metrics "
-#M0=" gld_transactions,gst_transactions,gld_efficiency,gst_efficiency,gst_throughput,gld_throughput"
+M0=" gld_transactions,gst_transactions,gld_efficiency,gst_efficiency,gst_throughput,gld_throughput"
 #M1=",gst_requested_throughput,gld_requested_throughput"
 #M2=",l2_read_transactions,l2_write_transactions"
 M3=""
-M4="sm_efficiency,achieved_occupancy"
+M4=",sm_efficiency,achieved_occupancy"
 
-#EVENTS="--events"
-#E0=" inst_executed,gld_inst_8bit,gld_inst_32bit"
+EVENTS="--events "
+#E0="inst_executed,gld_inst_8bit,gld_inst_32bit"
 #E1=",__l1_global_load_transactions,__l1_global_store_transactions"
-E2=""
-#E3=",l2_subp0_read_sector_misses"
-#E4=",l2_subp0_total_read_sector_queries"
+E2="l1_local_load_hit,l1_local_load_miss,l1_local_store_hit,l1_local_store_miss"
+E3=",l2_subp0_read_sector_misses"
+E4=",l2_subp0_total_read_sector_queries"
 E5=""
 
 if [[ "$mode" == "nf" ]]; then

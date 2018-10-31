@@ -187,6 +187,8 @@ __global__ void gasal_pack_kernel( \
         short3 global[MAX_SEQ_LEN];
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
+//if(i < 20)
+        //printf("T%d global[%d]: %p, global[0]: %p\n", tid, i, &global[i], &global);
         }
 #endif
         int32_t h[9];

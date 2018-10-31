@@ -31,7 +31,7 @@ if len(sys.argv) < 4:
 	print 'Error not enough arguments, usage: ./benchmark.py CPU_THREADS NUM_BLOCKS THREADS_PER_BLOCK'
 	exit()
 
-N = 5
+N = 3
 vals = [0 for x in range(N)]
 i = 0
 o1 = open('time_benchmark', 'a')

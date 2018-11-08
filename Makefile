@@ -33,8 +33,8 @@ config_file.o: ConfigFile.cpp
 	g++ -std=c++11 $(CFLAGS) -Wno-multichar -o config_file.o -c ConfigFile.cpp
 
 reference_guided: ntcoding.o fasta.o seed_pos_table.o chameleon.o config_file.o reference_guided.o
-	g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o gact.cpp align.cpp -o reference_guided -pthread 
-	#nvcc -std=c++11 $(NCFLAGS) $(LFLAGS) $(gpu_options) -arch=compute_35 -code=sm_35 -Xcompiler="-pthread -Wno-multichar" -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.cpp cuda_host.cu gact.cpp align.cpp -o reference_guided
+	#g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o gact.cpp align.cpp -o reference_guided -pthread 
+	nvcc -std=c++11 $(NCFLAGS) $(LFLAGS) $(gpu_options) -arch=compute_35 -code=sm_35 -Xcompiler="-pthread -Wno-multichar" -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.cpp cuda_host.cu gact.cpp align.cpp -o reference_guided
 
 clean:
 	rm -rf *.o reference_guided 

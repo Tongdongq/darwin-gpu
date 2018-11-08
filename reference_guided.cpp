@@ -131,10 +131,33 @@ std::string RevComp(std::string seq) {
                 seq[i] != 'g' && seq[i] != 'G' &&
                 seq[i] != 't' && seq[i] != 'T' &&
                 seq[i] != 'n' && seq[i] != 'N') {
-            std::cout<<"Bad Nt char: "<< seq[i] <<std::endl;
+            std::cerr<<"Bad Nt char: "<< seq[i] <<std::endl;
             exit(1);
         }
-        rc += rcmap[seq[i]];
+        else {
+            switch (seq[i]) {
+                case 'a': rc += 't';
+                          break;
+                case 'A': rc += 'T';
+                          break;
+                case 'c': rc += 'g';
+                          break;
+                case 'C': rc += 'G';
+                          break;
+                case 'g': rc += 'c';
+                          break;
+                case 'G': rc += 'C';
+                          break;
+                case 't': rc += 'a';
+                          break;
+                case 'T': rc += 'A';
+                          break;
+                case 'n': rc += 'n';
+                          break;
+                case 'N': rc += 'N';
+                          break;
+            }
+        }
     }
     return rc;
 }
@@ -232,7 +255,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_for[idx].first = 1;
             GACT_calls_for[idx].reverse = 1;
 #else   // perform GACT immediately
-            /*GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
+            GACT((char*)reference_seqs[chr_id].c_str(), reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
@@ -274,7 +297,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             GACT_calls_rev[idx].first = 1;
             GACT_calls_rev[idx].reverse = 1;
 #else   // perform GACT immediately
-            /*GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
+            GACT((char*)reference_seqs[chr_id].c_str(), rev_reads_char[k], \
                 reference_lengths[chr_id], len, \
                 tile_size, tile_overlap, \
                 ref_pos, query_pos, first_tile_score_threshold, \
@@ -298,10 +321,10 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     io_lock.lock();
     std::cout << "Time finding seeds: " << mseconds <<" msec" << std::endl;
     io_lock.unlock();
-    for(int i = 0; i < total_calls_for; ++i){
+    /*for(int i = 0; i < total_calls_for; ++i){
         GACT_call *c = &(GACT_calls_for[i]);
         printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d +\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
-    }//*/
+    }
     for(int i = 0; i < total_calls_rev; ++i){
         GACT_call *c = &(GACT_calls_rev[i]);
         printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d -\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
@@ -431,6 +454,8 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     }
     sync_lock.unlock();
 
+    gettimeofday(&begin, NULL);
+
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend, fout);
 
@@ -494,7 +519,6 @@ int main(int argc, char *argv[]) {
     seed_occurence_multiple = cfg.Value("DSOFT_params", "seed_occurence_multiple");
     max_candidates          = cfg.Value("DSOFT_params", "max_candidates");
     num_nz_bins             = cfg.Value("DSOFT_params", "num_nz_bins");
-    ignore_lower            = cfg.Value("DSOFT_params", "ignore_lower");
 
     // GACT first tile
     first_tile_size            = cfg.Value("GACT_first_tile", "first_tile_size");
@@ -507,8 +531,6 @@ int main(int argc, char *argv[]) {
     // Multi-threading
     //num_threads = cfg.Value("Multithreading", "num_threads");
     num_threads = std::stoi(argv[3], nullptr);
-
-    initRCMap();
 
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
@@ -554,7 +576,7 @@ int main(int argc, char *argv[]) {
             reference_string += std::string((bin_size - (reference_seqs[i].length() % bin_size)), 'N');
             bin_to_chr_id[curr_bin++] = i;
         }
-        std::cout << i << " " << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
+        //std::cout << i << " " << reference_descrips[i][0] << " length: " << reference_lengths[i] << std::endl;
     }
 
     reference_length = reference_string.length();
@@ -577,7 +599,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_reads; i++) {
         std::string rev_read = RevComp(reads_seqs[i]);
         rev_reads_seqs.push_back(rev_read);
-        std::cout << "Read " << i << ", length: " << rev_read.size() << std::endl;
+        //std::cout << "Read " << i << ", length: " << rev_read.size() << std::endl;
     }
 
     std::cout << "Number of reads: " << num_reads << std::endl;

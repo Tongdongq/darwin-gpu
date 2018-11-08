@@ -51,9 +51,9 @@ int gap_open;
 int gap_extend;
 
 // D-SOFT parameters
-std::string seed_shape;
-std::string seed_shape_str;
+int kmer_size;
 uint32_t bin_size;
+uint32_t window_size;
 int dsoft_threshold;
 int num_seeds;
 int seed_occurence_multiple;
@@ -108,21 +108,6 @@ std::mutex sync_mutex2;
 std::condition_variable cond_var;
 int t_done;
 
-std::map<char, char> rcmap;
-
-void initRCMap() {
-    rcmap['a'] = 'T';
-    rcmap['A'] = 'T';
-    rcmap['t'] = 'A';
-    rcmap['T'] = 'A';
-    rcmap['c'] = 'G';
-    rcmap['C'] = 'G';
-    rcmap['g'] = 'C';
-    rcmap['G'] = 'C';
-    rcmap['n'] = 'n';
-    rcmap['N'] = 'N';
-}
-
 std::string RevComp(std::string seq) {
     std::string rc = "";
     for (int i = seq.size()-1; i >= 0; i--) {
@@ -131,10 +116,33 @@ std::string RevComp(std::string seq) {
                 seq[i] != 'g' && seq[i] != 'G' &&
                 seq[i] != 't' && seq[i] != 'T' &&
                 seq[i] != 'n' && seq[i] != 'N') {
-            std::cout<<"Bad Nt char: "<< seq[i] <<std::endl;
+            std::cerr<<"Bad Nt char: "<< seq[i] <<std::endl;
             exit(1);
         }
-        rc += rcmap[seq[i]];
+        else {
+            switch (seq[i]) {
+                case 'a': rc += 't';
+                          break;
+                case 'A': rc += 'T';
+                          break;
+                case 'c': rc += 'g';
+                          break;
+                case 'C': rc += 'G';
+                          break;
+                case 'g': rc += 'c';
+                          break;
+                case 'G': rc += 'C';
+                          break;
+                case 't': rc += 'a';
+                          break;
+                case 'T': rc += 'A';
+                          break;
+                case 'n': rc += 'n';
+                          break;
+                case 'N': rc += 'N';
+                          break;
+            }
+        }
     }
     return rc;
 }
@@ -488,14 +496,13 @@ int main(int argc, char *argv[]) {
     gap_extend      = cfg.Value("GACT_scoring", "gap_extend");
 
     // D-SOFT parameters
-    seed_shape_str          = (std::string) cfg.Value("DSOFT_params", "seed_shape");
+    kmer_size               = cfg.Value("DSOFT_params", "seed_size");
     bin_size                = cfg.Value("DSOFT_params", "bin_size");
     dsoft_threshold         = cfg.Value("DSOFT_params", "threshold");
     num_seeds               = cfg.Value("DSOFT_params", "num_seeds");
     seed_occurence_multiple = cfg.Value("DSOFT_params", "seed_occurence_multiple");
     max_candidates          = cfg.Value("DSOFT_params", "max_candidates");
     num_nz_bins             = cfg.Value("DSOFT_params", "num_nz_bins");
-    ignore_lower            = cfg.Value("DSOFT_params", "ignore_lower");
 
     // GACT first tile
     first_tile_size            = cfg.Value("GACT_first_tile", "first_tile_size");
@@ -508,16 +515,6 @@ int main(int argc, char *argv[]) {
     // Multi-threading
     //num_threads = cfg.Value("Multithreading", "num_threads");
     num_threads = std::stoi(argv[3], nullptr);
-
-    seed_shape = seed_shape_str.c_str();
-    // Ignore lower case in ntcoding
-    if (ignore_lower) {
-        SetIgnoreLower();
-    }
-
-    initRCMap();
-
-    int shape_size = seed_shape.length();
 
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
@@ -609,7 +606,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\nConstructing seed position table ...\n";
     gettimeofday(&start, NULL);
 
-    sa = new SeedPosTable(reference_char, reference_length, seed_shape, seed_occurence_multiple, bin_size);
+    sa = new SeedPosTable(reference_char, reference_length, kmer_size, seed_occurence_multiple, bin_size, window_size);
 
     gettimeofday(&end_time, NULL);
 

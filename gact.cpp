@@ -416,6 +416,12 @@ io_lock.unlock();//*/
                         << ", be: " << query_pos
                         << ", score: " << total_score
                         << ", comp: " << complement << std::endl;//*/
+                        /*char strand = (complement == 0) ? '+' : '-';
+                        fout
+                        << "a score=" << total_score << std::endl
+                        << "s\t" << reference_descrips[c->ref_id][0] << "\t" << 1+c->ref_bpos << "\t" << aligned_ref_strs[callidx].length() << "\t+\t" << ref_length << "\t" << aligned_ref_strs[callidx] << std::endl
+                        << "s\t" << reads_descrips[c->query_id][0] << "\t" << 1+c->query_bpos << "\t" << aligned_query_strs[callidx].length() << "\t" << strand << "\t" << query_length << "\t" << aligned_query_strs[callidx] << std::endl
+                        << std::endl;//*/
                     //}
 
                         calls_done++;

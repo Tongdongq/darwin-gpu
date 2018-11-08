@@ -59,7 +59,6 @@ int num_seeds;
 int seed_occurence_multiple;
 int max_candidates;
 int num_nz_bins;
-bool ignore_lower;
 
 // GACT first tile
 int first_tile_size;
@@ -165,11 +164,11 @@ void PrintTileLocation (std::string read_name, \
 }
 
 // each CPU thread aligns a batch of multiple reads against the SeedTable
-// the params start_read_num and last_read_num indicate which readIDs are to be aligned for each CPU thread
+// all threads start at cpu_id, then move num_threads reads ahead
 #ifdef GPU
-void AlignReads (int start_read_num, int last_read_num, int cpu_id, GPU_storage s)
+void AlignReads (int last_read_num, int cpu_id, GPU_storage s)
 #else
-void AlignReads (int start_read_num, int last_read_num, int cpu_id)
+void AlignReads (int last_read_num, int cpu_id)
 #endif
 {
     std::string filename = "darwin." + to_string(cpu_id) + ".out";
@@ -207,7 +206,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     int num_candidates_for, num_candidates_rev;
     int total_calls_for = 0, total_calls_rev = 0;
 
-    for (int k = start_read_num; k < last_read_num; k++) {
+    for (int k = cpu_id; k < last_read_num; k+=num_threads) {
         int len = reads_lengths[k];
 
         // Forward reads
@@ -472,8 +471,8 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
 
 int main(int argc, char *argv[]) {
 
-    if (argc < 3) {
-        fprintf(stderr, "Usage: ./reference_guided <REFERENCE>.fasta <READS>.fasta [NUM_BLOCKS THREADS_PER_BLOCK]\n");
+    if (argc < 4) {
+        fprintf(stderr, "Usage: ./reference_guided <REFERENCE>.fasta <READS>.fasta NUM_THREADS [NUM_BLOCKS THREADS_PER_BLOCK]\n");
         exit(1);
     }
 
@@ -498,6 +497,7 @@ int main(int argc, char *argv[]) {
     // D-SOFT parameters
     kmer_size               = cfg.Value("DSOFT_params", "seed_size");
     bin_size                = cfg.Value("DSOFT_params", "bin_size");
+    window_size             = cfg.Value("DSOFT_params", "window_size");
     dsoft_threshold         = cfg.Value("DSOFT_params", "threshold");
     num_seeds               = cfg.Value("DSOFT_params", "num_seeds");
     seed_occurence_multiple = cfg.Value("DSOFT_params", "seed_occurence_multiple");
@@ -536,8 +536,8 @@ int main(int argc, char *argv[]) {
 
     printf("Scores: match = %d, mismatch = %d, gap_open = %d, gap_extend = %d\n", match_score, mismatch_score, gap_open, gap_extend);
 
-    int num_kmer = num_seeds;
-    int kmer_count_threshold = dsoft_threshold;
+    //int num_kmer = num_seeds;
+    //int kmer_count_threshold = dsoft_threshold;
 
     // LOAD REFERENCE
     std::cout << "\nLoading reference genome ...\n";
@@ -563,7 +563,7 @@ int main(int argc, char *argv[]) {
     }
 
     reference_length = reference_string.length();
-    std::cout << "Reference length: " << (unsigned int) reference_length << ", " << reference_seqs.size() << " pieces" << std::endl;
+    std::cout << "Reference length (after padding): " << (unsigned int) reference_length << ", " << reference_seqs.size() << " pieces" << std::endl;
 
 
     gettimeofday(&end_time, NULL);
@@ -615,12 +615,12 @@ int main(int argc, char *argv[]) {
     mseconds = ((seconds) * 1000 + useconds/1000.0) + 0.5;
     std::cout << "Time elapsed (seed position table construction): " << mseconds <<" msec" << std::endl;
 
-    uint64_t* seed_offset_vector = new uint64_t[num_kmer];
+    /*uint64_t* seed_offset_vector = new uint64_t[num_kmer];
     uint32_t index = 0;
     int last_N_pos = -1;
     uint64_t sum = 0;
     uint64_t total_num_seeds = 0;
-    char nt;
+    char nt;*/
 
     // initialize shared variable for sync after base conversion
     t_done = 0;
@@ -637,14 +637,11 @@ int main(int argc, char *argv[]) {
     std::cout << "\nFinding candidate bin locations for each read: " << std::endl;
 
     std::vector<std::thread> align_threads;
-    int reads_per_thread = ceil(1.0*num_reads/num_threads);
-    int i = 0;
-    for (int k = 0; k < num_reads; k+=reads_per_thread, i++) {
-        int last_read = (k+reads_per_thread > num_reads) ? num_reads : k+reads_per_thread;
+    for (int k = 0; k < num_threads; k++) {
 #ifdef GPU
-        align_threads.push_back(std::thread(AlignReads, k, last_read, i, s[i]));
+        align_threads.push_back(std::thread(AlignReads, num_reads, k, s[k]));
 #else
-        align_threads.push_back(std::thread(AlignReads, k, last_read, i));
+        align_threads.push_back(std::thread(AlignReads, num_reads, k));
 #endif
     }
     std::cout << align_threads.size() << " threads created\n";

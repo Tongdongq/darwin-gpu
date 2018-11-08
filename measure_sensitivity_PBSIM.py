@@ -47,7 +47,8 @@ if ref == 0:
 # data header: id, startpos in genome, length of overlap
 if daligner == 0:
 	f1 = open('reference.fasta','r')
-	f2 = open('reads.fasta','r')
+	#f2 = open('reads.fasta','r')
+	f2 = open('reference.fasta','r')
 else:
 	f1 = open('../PBSIM/src/sd_0001.fasta','r')
 	f2 = open('../PBSIM/src/sd_0002.fasta','r')

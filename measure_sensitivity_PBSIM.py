@@ -14,6 +14,12 @@ def parse(line):
 daligner = 0
 ref = 0
 extra = 1 # if extra is 1, add the reverse of the AB overlap (BA), should increase sensitivity, and halve specificity
+remove_trivial = 1 # if equal to 1, removes all 'read X ovls with read X' overlaps
+recompute_tovls = 0 # if equal to 1, recomputes all theoretical overlaps based on the input files, otherwise, look for w_theoretical_overlaps
+
+# thresholds to filter heuristic overlaps
+score_thres = 800
+min_length = 990
 
 if len(sys.argv) > 1:
 	arg = sys.argv[1]
@@ -94,47 +100,53 @@ all_theoretical_overlaps = []
 ## this approach took 2m17 to find tovls, as oppose to 1m29
 
 if ref == 0:
-	for (idx1, r1) in enumerate(list1):
-		if idx1 % 4000 == 0:
-			print('idx1: %d' % idx1)
-		for (idx2, r2) in enumerate(list2):
-			a1 = r1[1]
-			b1 = r2[1]
-			a2 = a1 + r1[2]
-			b2 = b1 + r2[2]
-			if a2 < b1 or b2 < a1:
-				continue
-			o1 = max(a1, b1)
-			o2 = min(a2, b2)
-			ovl_length = o2 - o1
-			#print("r1: %d, r2: %d, a1: %d, a2: %d, b1: %d, b2: %d, o1: %d, o2: %d, length: %d" % (idx1, idx2, a1, a2, b1, b2, o1, o2, ovl_length))
-			sa1 = o1 - a1
-			sa2 = o2 - a1
-			sb1 = o1 - b1
-			sb2 = o2 - b1
-			#print("%d %d" % (sa2-sa1, sb2-sb1))
-			if ovl_length >= 1000:
-				all_theoretical_overlaps.append((idx1, idx2, sa1, sa2, sb1, sb2, 0))
-			#print("r1: %d, r2: %d, sa1: %d, sa2: %d, sb1: %d, sb2: %d" % (idx1, idx2, sa1, sa2, sb1, sb2))
-			#print()
+	if recompute_tovls == 1:
+		for (idx1, r1) in enumerate(list1):
+			if idx1 % 4000 == 0:
+				print('idx1: %d' % idx1)
+			for (idx2, r2) in enumerate(list2):
+				a1 = r1[1]
+				b1 = r2[1]
+				a2 = a1 + r1[2]
+				b2 = b1 + r2[2]
+				if a2 < b1 or b2 < a1:
+					continue
+				o1 = max(a1, b1)
+				o2 = min(a2, b2)
+				ovl_length = o2 - o1
+				#print("r1: %d, r2: %d, a1: %d, a2: %d, b1: %d, b2: %d, o1: %d, o2: %d, length: %d" % (idx1, idx2, a1, a2, b1, b2, o1, o2, ovl_length))
+				sa1 = o1 - a1
+				sa2 = o2 - a1
+				sb1 = o1 - b1
+				sb2 = o2 - b1
+				#print("%d %d" % (sa2-sa1, sb2-sb1))
+				if ovl_length >= 1000:
+					all_theoretical_overlaps.append((idx1, idx2, sa1, sa2, sb1, sb2, 0))
+				#print("r1: %d, r2: %d, sa1: %d, sa2: %d, sb1: %d, sb2: %d" % (idx1, idx2, sa1, sa2, sb1, sb2))
+				#print()
 
-	print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))
+		print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))
 
-	fout = open('w_theoretical_ovls','w')
+		fout = open('w_theoretical_ovls','w')
 
-	for tovl in all_theoretical_overlaps:
-		fout.write(str(tovl))
-		fout.write('\n')
+		for tovl in all_theoretical_overlaps:
+			fout.write(str(tovl))
+			fout.write('\n')
 
-	fout.close()#"""
+		fout.close()
 	# above part to calculate tovls, below part to read precalculated tovls from file
-	"""print("File with tovls created %s" % time.ctime(os.path.getmtime('w_theoretical_ovls')))
-	fout = open('w_theoretical_ovls','r')
-	for line in fout:
-		all_theoretical_overlaps.append(parse(line))
-	fout.close()
-	print("Read tovls from file")
-	print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))#"""
+	else:
+		print("File with tovls created %s" % time.ctime(os.path.getmtime('w_theoretical_ovls')))
+		fout = open('w_theoretical_ovls','r')
+		for line in fout:
+			all_theoretical_overlaps.append(parse(line))
+		fout.close()
+		print("Read tovls from file")
+		print("Num theoretical ovls: %d" % len(all_theoretical_overlaps))
+
+if remove_trivial == 1:
+	all_theoretical_overlaps = [ovl for ovl in all_theoretical_overlaps if ovl[0] != ovl[1]]
+	print("Num non-trivial theoretical ovls: %d" % len(all_theoretical_overlaps))
 
 # analyze reported overlaps by heuristic aligner
 ## darwin:
@@ -176,12 +188,14 @@ else:
 		l.append(0)
 		all_heuristic_overlaps.append(l)
 	f1.close()
+
 print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
+if remove_trivial == 1:
+	all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[0] != ovl[1]]
+	print("Num non-trivial heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 # filter out some heuristic overlaps
 ## example criteria: length of overlap, score
-score_thres = 0
-min_length = 00
 
 hidx = 3			# idx where the read_id is, inside the heuristic ovl
 last_idx = 12		# idx where the extra 0 is placed, which is used to count FP

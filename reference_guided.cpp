@@ -51,9 +51,9 @@ int gap_open;
 int gap_extend;
 
 // D-SOFT parameters
-std::string seed_shape;
-std::string seed_shape_str;
+int kmer_size;
 uint32_t bin_size;
+uint32_t window_size;
 int dsoft_threshold;
 int num_seeds;
 int seed_occurence_multiple;
@@ -486,8 +486,9 @@ int main(int argc, char *argv[]) {
     gap_extend      = cfg.Value("GACT_scoring", "gap_extend");
 
     // D-SOFT parameters
-    seed_shape_str          = (std::string) cfg.Value("DSOFT_params", "seed_shape");
+    kmer_size               = cfg.Value("DSOFT_params", "seed_size");
     bin_size                = cfg.Value("DSOFT_params", "bin_size");
+    window_size             = cfg.Value("DSOFT_params", "window_size");
     dsoft_threshold         = cfg.Value("DSOFT_params", "threshold");
     num_seeds               = cfg.Value("DSOFT_params", "num_seeds");
     seed_occurence_multiple = cfg.Value("DSOFT_params", "seed_occurence_multiple");
@@ -507,15 +508,7 @@ int main(int argc, char *argv[]) {
     //num_threads = cfg.Value("Multithreading", "num_threads");
     num_threads = std::stoi(argv[3], nullptr);
 
-    seed_shape = seed_shape_str.c_str();
-    // Ignore lower case in ntcoding
-    if (ignore_lower) {
-        SetIgnoreLower();
-    }
-
     initRCMap();
-
-    int shape_size = seed_shape.length();
 
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
@@ -536,7 +529,7 @@ int main(int argc, char *argv[]) {
 #endif  // end BATCH
 
     printf("Scores: match = %d, mismatch = %d, gap_open = %d, gap_extend = %d\n", match_score, mismatch_score, gap_open, gap_extend);
-    printf("Minimizer window size: %d\n", W);
+    printf("Minimizer window size: %d\n", window_size);
 
     int num_kmer = num_seeds;
     int kmer_count_threshold = dsoft_threshold;
@@ -608,7 +601,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\nConstructing seed position table ...\n";
     gettimeofday(&start, NULL);
 
-    sa = new SeedPosTable(reference_char, reference_length, seed_shape, seed_occurence_multiple, bin_size);
+    sa = new SeedPosTable(reference_char, reference_length, kmer_size, seed_occurence_multiple, bin_size, window_size);
 
     gettimeofday(&end_time, NULL);
 

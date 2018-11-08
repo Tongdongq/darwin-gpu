@@ -1,12 +1,25 @@
-
 /*
-Copyright 2018 Yatish Turakhia, Gill Bejerano and William Dally
+MIT License
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Copyright (c) 2018 Yatish Turakhia, Gill Bejerano and William Dally
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 */
 
 #include "seed_pos_table.h"
@@ -15,7 +28,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 SeedPosTable::SeedPosTable() {
     ref_size_ = 0;
     kmer_size_ = 0;
-    shape_size_ = 0;
+    window_size_ = 0;
     num_bins_ = 0;
     nz_bins_ = 0;
 }
@@ -30,17 +43,15 @@ bool SeedPosTable::IsPresent(uint32_t index) {
     return (end_index - start_index <= kmer_max_occurence_);
 }
 
-SeedPosTable::SeedPosTable(char* ref_str, uint32_t ref_length, std::string shape, uint32_t seed_occurence_multiple, uint32_t bin_size) {
-    shape_size_ = shape.length(); 
-    int kmer_size = 0;
-    for (int i = 0; i < shape_size_; i++) {
-        kmer_size += (shape[i] == '1');
-    }
+SeedPosTable::SeedPosTable(char* ref_str, uint32_t ref_length, int kmer_size, uint32_t seed_occurence_multiple, uint32_t bin_size, uint32_t window_size) {
     
     assert(kmer_size <= 15);
     assert(kmer_size > 3); 
+    assert(kmer_size > window_size); 
+
     kmer_size_ = kmer_size;
     bin_size_  = bin_size;
+    window_size_ = window_size;
     log_bin_size_ = (uint32_t) (log2(bin_size_));
     ref_size_ = ref_length;
     
@@ -50,7 +61,7 @@ SeedPosTable::SeedPosTable(char* ref_str, uint32_t ref_length, std::string shape
     uint32_t* r_2bit = SeqToTwoBit(ref_str, ref_length);
 
     int k = kmer_size;
-    int w = W;
+    int w = window_size;
     std::pair <uint64_t*, uint32_t> m_n;
     m_n = TwoBitToMinimizers(r_2bit, rlen_2bit, k, w); 
     uint64_t* minimizers = m_n.first;
@@ -98,9 +109,9 @@ int SeedPosTable::DSOFT(char* query, uint32_t query_length, int N, int threshold
     uint32_t* q_2bit = SeqToTwoBit(query, query_length);
 
     int k = kmer_size_;
-    int w = W;
+    int w = window_size_;
     std::pair <uint64_t*, uint32_t> m_n;
-    m_n = QTwoBitToMinimizers(q_2bit, FIND_MIN(qlen_2bit, 1+N/16), k, w); 
+    m_n = QTwoBitToMinimizers(q_2bit, qlen_2bit, k, w); 
     uint64_t* minimizers = m_n.first;
     uint32_t num_min = m_n.second;
     
@@ -114,6 +125,9 @@ int SeedPosTable::DSOFT(char* query, uint32_t query_length, int N, int threshold
             uint32_t end_index = index_table_[index];
 
             if (end_index - start_index <= kmer_max_occurence_) {
+                if (num_seeds > N) {
+                    break;
+                }
                 num_seeds++;
                 for (uint32_t j = start_index; j < end_index; j++) {
                     hit = pos_table_[j];
@@ -151,5 +165,4 @@ int SeedPosTable::DSOFT(char* query, uint32_t query_length, int N, int threshold
     delete[] minimizers;
     return num_candidates;
 }
-
 

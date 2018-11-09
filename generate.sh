@@ -10,8 +10,12 @@ THRES=${6:-5}
 t=1
 
 if [[ "$1" == *"PBSIM"* ]]; then
-	cd ../PBSIM/src
-	./run.sh 20
+	if [ "$TACC" -eq "1" ]; then
+		cd $DATA/PBSIM/src
+	else
+		cd ../PBSIM/src
+	fi
+	./run.sh 10
 	./prepare_reads.py
 	t=0
 	printf "\nDon't forget to convert the PBSIM reads\n\n"

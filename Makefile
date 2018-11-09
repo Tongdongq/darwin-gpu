@@ -6,7 +6,7 @@ CFLAGS = -O4
 #LFLAGS = -pg
 LFLAGS =
 
-#NCFLAGS = -O0 -G -Xptxas -v
+#NCFLAGS = -O0 -g -G -Xptxas -v
 #NCFLAGS = -O3 -Xptxas -v -lineinfo
 NCFLAGS = -O3 -Xptxas -v
 

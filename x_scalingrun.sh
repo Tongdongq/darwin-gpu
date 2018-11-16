@@ -45,6 +45,11 @@ function set_params {
 	sed -i "s/^gap_open =.*$/gap_open = $3/" params.cfg
 	sed -i "s/^gap_extend =.*$/gap_extend = $4/" params.cfg
 }
+	sleep 4h
+	./profile.sh f 1 256 64
+}
+
+#compare
 
 compare
 

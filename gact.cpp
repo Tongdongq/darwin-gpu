@@ -39,6 +39,8 @@ extern std::vector<long long int> reference_lengths;
 extern std::vector<std::string> reads_seqs;
 extern std::vector<std::string> rev_reads_seqs;
 extern std::vector<long long int> reads_lengths;
+extern std::vector<std::vector<std::string> > reference_descrips;
+extern std::vector<std::vector<std::string> > reads_descrips;
 
 // not needed, since results are printed to a file
 //extern std::mutex io_lock;
@@ -220,8 +222,10 @@ void GACT (char *ref_str, char *query_str, \
     std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
     fout
-    << "ref_id: " << ref_id
-    << ", query_id: " << query_id
+    << "ref_id: " << reference_descrips[ref_id][0]
+    << ", query_id: " << reads_descrips[query_id][0]
+    //<< "ref_id: " << ref_id
+    //<< ", query_id: " << query_id
     << ", ab: " << abpos
     << ", ae: " << ref_pos
     << ", bb: " << bbpos
@@ -265,6 +269,11 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
     //output of the function
     std::vector<std::string> aligned_ref_strs(num_calls);
     std::vector<std::string> aligned_query_strs(num_calls);
+
+    for(int i = 0; i < num_calls; ++i){
+        aligned_ref_strs[i].reserve(200);
+        aligned_query_strs[i].reserve(200);
+    }
 
     std::vector<int> first_tile_scores(num_calls);
 
@@ -393,15 +402,19 @@ if(1){
     }printf("\n");
 }
 io_lock.unlock();//*/
+                    //if(ref_pos - c->ref_bpos > 100 && query_pos - c->query_bpos > 100 && total_score > 100){
                         fout
-                        << "ref_id: " << c->ref_id
-                        << ", query_id: " << c->query_id
+                        << "ref_id: " << reference_descrips[c->ref_id][0]
+                        << ", query_id: " << reads_descrips[c->query_id][0]
+                        //<< "ref_id: " << c->ref_id
+                        //<< ", query_id: " << c->query_id
                         << ", ab: " << c->ref_bpos
                         << ", ae: " << ref_pos
                         << ", bb: " << c->query_bpos
                         << ", be: " << query_pos
                         << ", score: " << total_score
                         << ", comp: " << complement << std::endl;//*/
+                    //}
 
                         calls_done++;
                         assignments[t] = next_callidx;
@@ -466,14 +479,10 @@ io_lock.unlock();//*/
 #endif
 
 #ifdef GPU
-#ifdef STABLE
-        BT_statess = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
-#else
         int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
-#endif // STABLE
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
-        BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
+        BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, match_score, mismatch_score, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
 #endif
 
 #ifdef TIME
@@ -481,8 +490,7 @@ io_lock.unlock();//*/
         time_gpu += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         t1 = std::chrono::high_resolution_clock::now();
 #endif
-
-#ifndef STABLE
+#ifdef GPU
         std::queue<int> q;
         int off = 0;
         BT_statess.clear();
@@ -496,7 +504,6 @@ io_lock.unlock();//*/
             BT_statess.push_back(q);
         }
 #endif
-
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
@@ -515,7 +522,7 @@ io_lock.unlock();//*/
             int tile_score = BT_states.front();
             int first_tile_score;
             BT_states.pop();
-//printf("T%d tile score: %d\n", t, tile_score);
+//printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");

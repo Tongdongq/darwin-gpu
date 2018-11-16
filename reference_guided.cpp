@@ -108,21 +108,6 @@ std::mutex sync_mutex2;
 std::condition_variable cond_var;
 int t_done;
 
-std::map<char, char> rcmap;
-
-void initRCMap() {
-    rcmap['a'] = 'T';
-    rcmap['A'] = 'T';
-    rcmap['t'] = 'A';
-    rcmap['T'] = 'A';
-    rcmap['c'] = 'G';
-    rcmap['C'] = 'G';
-    rcmap['g'] = 'C';
-    rcmap['G'] = 'C';
-    rcmap['n'] = 'n';
-    rcmap['N'] = 'N';
-}
-
 std::string RevComp(std::string seq) {
     std::string rc = "";
     for (int i = seq.size()-1; i >= 0; i--) {
@@ -453,6 +438,8 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         cond_var.wait(sync_lock, []{return t_done==num_threads;});
     }
     sync_lock.unlock();
+    
+    gettimeofday(&begin, NULL);
 
     gettimeofday(&begin, NULL);
 
@@ -580,7 +567,7 @@ int main(int argc, char *argv[]) {
     }
 
     reference_length = reference_string.length();
-    std::cout << "Reference length: " << (unsigned int) reference_length << std::endl;
+    std::cout << "Reference length: " << (unsigned int) reference_length << ", " << reference_seqs.size() << " pieces" << std::endl;
 
 
     gettimeofday(&end_time, NULL);

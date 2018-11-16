@@ -19,16 +19,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "cuda_header.h"
 #include "gact.h"
 
-#ifdef STABLE
-std::vector<std::queue<int> > Align_Batch_GPU( \
-    std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, \
-    std::vector<int> ref_lens, std::vector<int> query_lens, \
-    int *sub_mat, int gap_open, int gap_extend, \
-    std::vector<int> ref_poss, std::vector<int> query_poss, \
-    std::vector<char> reverses, std::vector<char> firsts, \
-    int early_terminate, int tile_size, \
-    GPU_storage *s, int num_blocks, int threads_per_block){
-#else
+
 int* Align_Batch_GPU( \
     std::vector<std::string> ref_seqs, std::vector<std::string> query_seqs, \
     std::vector<int> ref_lens, std::vector<int> query_lens, \
@@ -37,7 +28,6 @@ int* Align_Batch_GPU( \
     std::vector<char> reverses, std::vector<char> firsts, \
     int early_terminate, int tile_size, \
     GPU_storage *s, int num_blocks, int threads_per_block){
-#endif
 
   std::vector<std::queue<int> > result;
 
@@ -80,8 +70,8 @@ int* Align_Batch_GPU( \
 
   int ref_curr = 0, query_curr = 0;
 
-  ref_seqs_b = (char*)malloc(BATCH_SIZE * tile_size);
-  query_seqs_b = (char*)malloc(BATCH_SIZE * tile_size);
+  ref_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
+  query_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
   ref_lens_b = (int*)malloc(BATCH_SIZE * sizeof(int));
   query_lens_b = (int*)malloc(BATCH_SIZE * sizeof(int));
   ref_poss_b = (int*)malloc(BATCH_SIZE * sizeof(int));
@@ -99,6 +89,14 @@ int* Align_Batch_GPU( \
 #endif
 
   for(int t = 0; t < BATCH_SIZE; ++t){
+    if(ref_lens[t] == -1){
+#ifndef GASAL
+      ref_curr += tile_size;
+      query_curr += tile_size;
+#endif
+      ref_lens_b[t] = ref_lens[t];
+      continue;
+    }
 #ifndef GASAL
 #ifdef COALESCE_BASES
     /*for(int j = 0; j < ref_lens[t]; ++j){
@@ -141,6 +139,7 @@ int* Align_Batch_GPU( \
 #endif // COALESCE_BASES
 #endif // GASAL
     ref_lens_b[t] = ref_lens[t];
+    //printf("T%d ref_len: %d\n", t, ref_lens_b[t]);
     query_lens_b[t] = query_lens[t];
     ref_poss_b[t] = ref_poss[t];
     query_poss_b[t] = query_poss[t];
@@ -151,22 +150,28 @@ int* Align_Batch_GPU( \
   int NUM_BLOCKS = num_blocks;
   int THREADSPERBLOCK = threads_per_block;
 
+
 #ifdef STREAM
 #ifdef GASAL
   for(int t = 0; t < BATCH_SIZE; ++t){
     if(ref_lens[t] == -1){continue;}
     ref_offsets_b[t] = ref_curr;
     query_offsets_b[t] = query_curr;
+#ifndef COALESCE_PACKED_BASES
     if(reverses[t] == 1){
         memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
         memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
     }else{
+      //printf("T%d is forward\n", t);
         for(int j = 0; j < ref_lens[t]; ++j){
             ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
         }
+        //printf("T%d query %d \t", t, query_lens[t]);
         for(int j = 0; j < query_lens[t]; ++j){
+          //if(j % 8 == 0){printf(" ");}
+            //printf("%d", query_seqs[t].c_str()[query_lens[t]-j-1]);
             query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
-        }
+        }//printf("\n");
     }
     ref_curr += ref_lens[t];
     query_curr += query_lens[t];
@@ -176,6 +181,62 @@ int* Align_Batch_GPU( \
     while(query_curr % 8 != 0){
       query_seqs_b[query_curr++] = 5;
     }
+#else
+    int i, j, remainder;
+    if(reverses[t] == 1){
+      for(i = 0; i < ref_lens[t] / 8; ++i){
+        memcpy(ref_seqs_b + (i * BATCH_SIZE + t) * 8, ref_seqs[t].c_str() + 8*i, 8);
+      }
+      remainder = ref_lens[t] % 8;
+      if(remainder != 0){
+        memcpy(ref_seqs_b + (i * BATCH_SIZE + t) * 8, ref_seqs[t].c_str() + 8*i, remainder);
+        for(j = remainder; j < 8; ++j){
+          ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 4;
+        }
+      }
+      for(i = 0; i < query_lens[t] / 8; ++i){
+        memcpy(query_seqs_b + (i * BATCH_SIZE + t) * 8, query_seqs[t].c_str() + 8*i, 8);
+      }
+      remainder = query_lens[t] % 8;
+      if(remainder != 0){
+        memcpy(query_seqs_b + (i * BATCH_SIZE + t) * 8, query_seqs[t].c_str() + 8*i, remainder);
+        for(j = remainder; j < 8; ++j){
+          query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 5;
+        }
+        }
+    }else{
+        for(i = 0; i < ref_lens[t] / 8; ++i){
+          for(j = 0; j < 8; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = ref_seqs[t].c_str()[ref_lens[t]-8*i-j-1];
+          }
+        }
+        remainder = ref_lens[t] % 8;
+        if(remainder != 0){
+          for(j = 0; j < remainder; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = ref_seqs[t].c_str()[ref_lens[t]-8*i-j-1];;
+          }
+          for(; j < 8; ++j){
+            ref_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 4;
+          }
+        }
+        for(i = 0; i < query_lens[t] / 8; ++i){
+          for(j = 0; j < 8; ++j){
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = query_seqs[t].c_str()[query_lens[t]-8*i-j-1];
+          }
+        }
+        remainder = query_lens[t] % 8;
+        if(remainder % 8 != 0){
+          for(j = 0; j < remainder; ++j){
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = query_seqs[t].c_str()[query_lens[t]-8*i-j-1];;
+          }
+          for(; j < 8; ++j){
+            query_seqs_b[(i * BATCH_SIZE + t) * 8 + j] = 5;
+          }
+        }
+    }
+    ref_curr = BATCH_SIZE * tile_size;
+    query_curr = BATCH_SIZE * tile_size;
+#endif
   }
   /*for(int i = 0; i < 640; ++i){
     if(i%8==0)printf(" ");
@@ -185,6 +246,7 @@ int* Align_Batch_GPU( \
     if(i%8==0)printf(" ");
     printf("%d", ref_seqs_b[i]);
   }printf("\n");//*/
+  //printf("150\n");
   uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
   uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
   int32_t *query_offsets_d = s->query_offsets_d;
@@ -211,7 +273,6 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
-#ifndef NIGHTLY
   gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
     packed_query_seqs_d, packed_ref_seqs_d, \
     query_lens_d, ref_lens_d, \
@@ -219,15 +280,6 @@ int* Align_Batch_GPU( \
     query_poss_d, ref_poss_d, \
     outs_d, \
     firsts_d, (char*)(s->matrices_d));
-#else
-  gasal_local_kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>( \
-    packed_query_seqs_d, packed_ref_seqs_d, \
-    query_lens_d, ref_lens_d, \
-    query_offsets_d, ref_offsets_d, \
-    query_poss_d, ref_poss_d, \
-    outs_d, \
-    firsts_d, (char*)(s->matrices_d), s->local_d);
-#endif
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
@@ -270,22 +322,8 @@ int* Align_Batch_GPU( \
   cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #endif
 
-#ifdef STABLE
-  std::queue<int> BT_states;
-  int off = 0;
 
-  for(int t = 0; t < BATCH_SIZE; ++t){
-    BT_states = std::queue<int>();
-    for(int i = 1; i <= outs_b[off]; ++i){
-      BT_states.push(outs_b[i+off]);
-    }
-    off += (2 * tile_size);
-    result.push_back(BT_states);
-  }
-  return result;
-#else
   return outs_b;
-#endif
 }
 
 
@@ -304,10 +342,10 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
 #ifdef GASAL
   int size_matrices = (tile_size+2)*(tile_size+2);
-  int size_local = sizeof(short4)*MAX_SEQ_LEN;
 #else // GASAL
 #ifndef COMPRESS_DIR
-  int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+  //int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+  int size_matrices = sizeof(int)*(tile_size+1)*(tile_size+9);
 #else
   int size_matrices = sizeof(int)*(tile_size+1)*8 + ((tile_size+1)*(tile_size+1)+1)/2;
 #endif // COMPRESS_DIR
@@ -315,8 +353,8 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
   for(int i = 0; i < num_threads; ++i){
     s->push_back(GPU_storage());
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*tile_size));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_seqs_d), BATCH_SIZE*tile_size));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_seqs_d), BATCH_SIZE*(tile_size+1)));
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_seqs_d), BATCH_SIZE*(tile_size+1)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_lens_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_lens_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_poss_d), BATCH_SIZE*sizeof(int)));
@@ -334,9 +372,6 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-#ifdef NIGHTLY
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].local_d), BATCH_SIZE*size_local));
-#endif
 #else
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
 #endif
@@ -362,9 +397,6 @@ void GPU_close(std::vector<GPU_storage> *s, int num_threads){
     cudaSafeCall(cudaFree((void*)((*s)[i].firsts_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].outs_d)));
     cudaSafeCall(cudaFree((void*)((*s)[i].matrices_d)));
-#ifdef NIGHTLY
-    cudaSafeCall(cudaFree((void*)((*s)[i].local_d)));
-#endif
 #ifdef STREAM
     cudaSafeCall(cudaStreamDestroy((*s)[i].stream->stream));
     free((*s)[i].stream);

@@ -33,10 +33,8 @@ do
 		options="$options -D COMPRESS_DIR";;
 	"GASAL")
 		options="$options -D GASAL";;
-	"N")
-		options="$options -D NIGHTLY";;
-	"STABLE")
-		options="$options -D STABLE";;
+	"CPBASES")
+		options="$options -D COALESCE_PACKED_BASES";;
 	"32")
 		maxregcount=32;;
 	"64")

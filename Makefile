@@ -1,12 +1,13 @@
 
-#CFLAGS = -O4 -g -fopenmp
-CFLAGS = -O4 -fopenmp
+#CFLAGS = -O0 -g
+CFLAGS = -O4
 
 # linker flags, -pg enables use of gprof
 #LFLAGS = -pg
 LFLAGS =
 
 #NCFLAGS = -O0 -G -Xptxas -v
+#NCFLAGS = -O3 -Xptxas -v -lineinfo
 NCFLAGS = -O3 -Xptxas -v
 #NCFLAGS = -O3 -Xptxas -v -lineinfo
 CFLAGS += $(options)
@@ -33,8 +34,7 @@ config_file.o: ConfigFile.cpp
 
 reference_guided: ntcoding.o fasta.o seed_pos_table.o chameleon.o config_file.o reference_guided.o
 	#g++ -std=c++11 $(CFLAGS) $(LFLAGS) -Wno-multichar -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.o cuda_host.cu gact.cpp align.cpp -o reference_guided -pthread 
-#reference_guided: reference_guided.cpp cuda_host.cu cuda_header.h align.cpp gact.cpp
-	nvcc -std=c++11 $(NCFLAGS) $(LFLAGS) $(gpu_options) -arch=compute_35 -code=sm_35 -Xcompiler="-fopenmp -pthread -Wno-multichar" -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.cpp cuda_host.cu gact.cpp align.cpp -o reference_guided
+	nvcc -std=c++11 $(NCFLAGS) $(LFLAGS) $(gpu_options) -arch=compute_35 -code=sm_35 -Xcompiler="-pthread -Wno-multichar -fopenmp" -I/usr/local/include/ fasta.o ntcoding.o seed_pos_table.o chameleon.o config_file.o reference_guided.cpp cuda_host.cu gact.cpp align.cpp -o reference_guided
 
 clean:
 	rm -rf *.o reference_guided 

@@ -15,11 +15,12 @@ daligner = 0
 ref = 0
 extra = 1 # if extra is 1, add the reverse of the AB overlap (BA), should increase sensitivity, and halve specificity
 remove_trivial = 1 # if equal to 1, removes all 'read X ovls with read X' overlaps
-recompute_tovls = 0 # if equal to 1, recomputes all theoretical overlaps based on the input files, otherwise, look for w_theoretical_overlaps
+recompute_tovls = 1 # if equal to 1, recomputes all theoretical overlaps based on the input files, otherwise, look for w_theoretical_overlaps
+ref_vs_read = 0 # if equal to 1, assume hovls are from ref vs read, otherwise from ref vs ref
 
 # thresholds to filter heuristic overlaps
-score_thres = 800
-min_length = 990
+score_thres = 00
+min_length = 0
 
 if len(sys.argv) > 1:
 	arg = sys.argv[1]
@@ -47,11 +48,16 @@ if ref == 0:
 # data header: id, startpos in genome, length of overlap
 if daligner == 0:
 	f1 = open('reference.fasta','r')
-	#f2 = open('reads.fasta','r')
-	f2 = open('reference.fasta','r')
+	if ref_vs_read == 1:
+		f2 = open('reads.fasta','r')
+	else:
+		f2 = open('reference.fasta','r')
 else:
 	f1 = open('../PBSIM/src/sd_0001.fasta','r')
-	f2 = open('../PBSIM/src/sd_0002.fasta','r')
+	if ref_vs_read == 1:
+		f2 = open('../PBSIM/src/sd_0002.fasta','r')
+	else:
+		f2 = open('../PBSIM/src/sd_0001.fasta','r')
 list1 = []		# contains info from f1
 list2 = []		# contains info from f2
 
@@ -191,9 +197,6 @@ else:
 	f1.close()
 
 print("Num heuristic overlaps: %d" % len(all_heuristic_overlaps))
-if remove_trivial == 1:
-	all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[0] != ovl[1]]
-	print("Num non-trivial heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 # filter out some heuristic overlaps
 ## example criteria: length of overlap, score
@@ -217,6 +220,10 @@ else:
 		last_idx = 7
 		sa1 = 2; sa2 = 3; sb1 = 4; sb2 = 5; score_idx = 6
 
+
+if remove_trivial == 1:
+	all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[0] != ovl[hidx]]
+	print("Num non-trivial heuristic overlaps: %d" % len(all_heuristic_overlaps))
 
 all_heuristic_overlaps = [ovl for ovl in all_heuristic_overlaps if ovl[sa2]-ovl[sa1] >= min_length and ovl[sb2]-ovl[sb1] >= min_length]
 if score_idx == -1:
@@ -254,25 +261,16 @@ if ref == 0:
 			hovl = all_heuristic_overlaps[idx]
 			if tovl[0] == hovl[0] and tovl[1] == hovl[hidx]:
 				fn = 0
-				TP = TP + 1
-				hovl[last_idx] = 1
-				#print tovl
-				# remove some info from darwin overlap
-				#movl = [y for x in [[hovl[0]], [hovl[3]], hovl[6:]] for y in x]
-				#print movl
-				#print()
-
-				#if n % 10 == 0:
-					#print("ref_id, read_id, ref_start, ref_end, read_start, read_end, score")
+				hovl[last_idx] = 1 # mark hovl as true positive
 			idx += 1
 		if fn == 1:
 			FN = FN + 1
-			#if FN < 500 and FN > 490:
-			#	print tovl
 	for hovl in all_heuristic_overlaps:
 		if hovl[last_idx] == 0:
 			FP = FP + 1
 			#print hovl
+		else:
+			TP = TP + 1
 else:
 	# fp is a list
 	## 0: read not mapped

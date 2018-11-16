@@ -222,8 +222,10 @@ void GACT (char *ref_str, char *query_str, \
     std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
     fout
-    << "ref_id: " << ref_id
-    << ", query_id: " << query_id
+    << "ref_id: " << reference_descrips[ref_id][0]
+    << ", query_id: " << reads_descrips[query_id][0]
+    //<< "ref_id: " << ref_id
+    //<< ", query_id: " << query_id
     << ", ab: " << abpos
     << ", ae: " << ref_pos
     << ", bb: " << bbpos
@@ -480,7 +482,7 @@ io_lock.unlock();//*/
         int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
 #else
         //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
-        BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
+        BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, match_score, mismatch_score, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
 #endif
 
 #ifdef TIME
@@ -488,7 +490,7 @@ io_lock.unlock();//*/
         time_gpu += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         t1 = std::chrono::high_resolution_clock::now();
 #endif
-
+#ifdef GPU
         std::queue<int> q;
         int off = 0;
         BT_statess.clear();
@@ -501,7 +503,7 @@ io_lock.unlock();//*/
             off += (2 * tile_size);
             BT_statess.push_back(q);
         }
-
+#endif
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];

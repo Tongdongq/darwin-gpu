@@ -89,6 +89,12 @@ int* Align_Batch_GPU( \
 #endif
 
   for(int t = 0; t < BATCH_SIZE; ++t){
+    if(ref_lens[t] == -1){
+      ref_curr += tile_size;
+      query_curr += tile_size;
+      ref_lens_b[t] = ref_lens[t];
+      continue;
+    }
 #ifndef GASAL
 #ifdef COALESCE_BASES
     /*for(int j = 0; j < ref_lens[t]; ++j){

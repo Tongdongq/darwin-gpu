@@ -676,7 +676,7 @@ if(first == 0){
             break;
         }
         BT_states[i++] = state;
-if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
+//if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
             i_curr--;

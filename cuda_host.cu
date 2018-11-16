@@ -90,8 +90,10 @@ int* Align_Batch_GPU( \
 
   for(int t = 0; t < BATCH_SIZE; ++t){
     if(ref_lens[t] == -1){
+#ifndef GASAL
       ref_curr += tile_size;
       query_curr += tile_size;
+#endif
       ref_lens_b[t] = ref_lens[t];
       continue;
     }
@@ -342,7 +344,8 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   int size_matrices = (tile_size+2)*(tile_size+2);
 #else // GASAL
 #ifndef COMPRESS_DIR
-  int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+  //int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
+  int size_matrices = sizeof(int)*(tile_size+1)*(tile_size+9);
 #else
   int size_matrices = sizeof(int)*(tile_size+1)*8 + ((tile_size+1)*(tile_size+1)+1)/2;
 #endif // COMPRESS_DIR

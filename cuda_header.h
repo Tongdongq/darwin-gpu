@@ -169,14 +169,20 @@ __global__ void gasal_pack_kernel( \
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
         }
+#ifdef COALESCE_MATRICES
         dir_matrix += tid;
+#else
+        dir_matrix += tid*(_tile_size+2)*(_tile_size+2);
+#endif
         for (int i = 0; i < ref_len + 2; i++) {
             dir_matrix[(i*row_len)*__X] = ZERO_OP;
         }
         for (int j = 0; j < query_len + 2; j++) {
             dir_matrix[j*__X] = ZERO_OP;
         }//*/
+#ifdef COALESCE_MATRICES
         dir_matrix += (_tile_size+3)*__X;
+#endif
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
 //#pragma unroll 9
             for (m = 0; m < 9; m++) {

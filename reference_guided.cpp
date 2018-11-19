@@ -225,15 +225,15 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             ref_pos -= start_bin*bin_size;
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
+            if(ref_pos > reference_lengths[chr_id]){
+                //printf("WARNING ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
+                ref_pos = reference_lengths[chr_id];
+            }
 #ifdef BATCH
             // store GACT_call
             GACT_call g;
             GACT_calls_for.push_back(g);
             int idx = GACT_calls_for.size() - 1;
-            if(ref_pos > reference_lengths[chr_id]){
-                //printf("WARNING ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
-                ref_pos = reference_lengths[chr_id];
-            }
             GACT_calls_for[idx].ref_id = chr_id;
             GACT_calls_for[idx].query_id = k;
             GACT_calls_for[idx].ref_pos = ref_pos;
@@ -271,15 +271,15 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             ref_pos -= start_bin*bin_size;
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
+            if(ref_pos > reference_lengths[chr_id]){
+                //printf("WARNING rev ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
+                ref_pos = reference_lengths[chr_id];
+            }
 #ifdef BATCH
             // store GACT_call
             GACT_call g;
             GACT_calls_rev.push_back(g);
             int idx = GACT_calls_rev.size() - 1;
-            if(ref_pos > reference_lengths[chr_id]){
-                //printf("WARNING rev ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
-                ref_pos = reference_lengths[chr_id];
-            }
             GACT_calls_rev[idx].ref_id = chr_id;
             GACT_calls_rev[idx].query_id = k;
             GACT_calls_rev[idx].ref_pos = ref_pos;

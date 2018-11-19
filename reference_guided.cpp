@@ -39,6 +39,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 //enum states {Z, D, I, M};
 
+// true iff both fasta files have the same name
+bool same_file = false;
+
 int NUM_BLOCKS;
 int THREADS_PER_BLOCK;
 int BATCH_SIZE;
@@ -529,6 +532,10 @@ int main(int argc, char *argv[]) {
 
     std::string reference_filename(argv[1]);
     std::string reads_filename(argv[2]);
+    if(reference_filename.compare(reads_filename) == 0){
+        same_file = true;
+    }
+    printf("same_file: %d\n", same_file);
 #ifdef BATCH
     NUM_BLOCKS = std::stoi(argv[4], nullptr);
     THREADS_PER_BLOCK = std::stoi(argv[5], nullptr);

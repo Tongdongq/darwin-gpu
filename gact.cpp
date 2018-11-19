@@ -34,6 +34,7 @@ int sub_mat[25] = {
 
 
 // declared in reference_guided.cpp
+extern bool same_file;
 extern std::vector<std::string> reference_seqs;
 extern std::vector<long long int> reference_lengths;
 extern std::vector<std::string> reads_seqs;
@@ -149,7 +150,7 @@ void GACT (char *ref_str, char *query_str, \
         
         ref_tile_length = (ref_pos + tile_size < ref_length) ? tile_size : ref_length - ref_pos;
         query_tile_length = (query_pos + tile_size < query_length) ? tile_size : query_length - query_pos;
-        
+
         BT_states = AlignWithBT (\
             ref_str + ref_pos, \
             ref_tile_length, \
@@ -221,18 +222,20 @@ void GACT (char *ref_str, char *query_str, \
     std::cout << aligned_query_str << std::endl;
     std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
-    fout
-    << "ref_id: " << reference_descrips[ref_id][0]
-    << ", query_id: " << reads_descrips[query_id][0]
-    //<< "ref_id: " << ref_id
-    //<< ", query_id: " << query_id
-    << ", ab: " << abpos
-    << ", ae: " << ref_pos
-    << ", bb: " << bbpos
-    << ", be: " << query_pos
-    << ", score: " << total_score
-    << ", comp: " << complement << std::endl;//*/
 
+    if(!(same_file && ref_id == query_id)){
+        fout
+        //<< "ref_id: " << reference_descrips[ref_id][0]
+        //<< ", query_id: " << reads_descrips[query_id][0]
+        << "ref_id: " << ref_id
+        << ", query_id: " << query_id
+        << ", ab: " << abpos
+        << ", ae: " << ref_pos
+        << ", bb: " << bbpos
+        << ", be: " << query_pos
+        << ", score: " << total_score
+        << ", comp: " << complement << std::endl;//*/
+}
     callidx++;
 
 } // end GACT()
@@ -402,19 +405,19 @@ if(1){
     }printf("\n");
 }
 io_lock.unlock();//*/
-                    //if(ref_pos - c->ref_bpos > 100 && query_pos - c->query_bpos > 100 && total_score > 100){
+                    if(!(same_file && c->ref_id == c->query_id)){
                         fout
-                        << "ref_id: " << reference_descrips[c->ref_id][0]
-                        << ", query_id: " << reads_descrips[c->query_id][0]
-                        //<< "ref_id: " << c->ref_id
-                        //<< ", query_id: " << c->query_id
+                        //<< "ref_id: " << reference_descrips[c->ref_id][0]
+                        //<< ", query_id: " << reads_descrips[c->query_id][0]
+                        << "ref_id: " << c->ref_id
+                        << ", query_id: " << c->query_id
                         << ", ab: " << c->ref_bpos
                         << ", ae: " << ref_pos
                         << ", bb: " << c->query_bpos
                         << ", be: " << query_pos
                         << ", score: " << total_score
                         << ", comp: " << complement << std::endl;//*/
-                    //}
+                    }
 
                         calls_done++;
                         assignments[t] = next_callidx;

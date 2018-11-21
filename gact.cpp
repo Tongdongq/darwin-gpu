@@ -631,8 +631,8 @@ io_lock.unlock();//*/
                     }
                 }
 #ifdef NOSCORE
-                int j = res[1];
-                int i = res[2];
+                j = res[1];
+                i = res[2];
                 if(i + j > 0){
                     first_tile = false;
                 }

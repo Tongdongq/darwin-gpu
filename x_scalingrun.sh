@@ -1,5 +1,33 @@
 #!/bin/bash
 
+set -x
+	./z_compile.sh
+	./run.sh 8 32 64
+	cat darwin.*.out | sort | uniq > tg
+	rm darwin.*.out
+	./z_compile.sh BATCH GPU STREAM 64 CMAT CBASES
+	./run.sh 8 32 64
+	cat darwin.*.out | sort | uniq > ts
+	rm darwin.*.out
+	diff tg ts | head
+	./z_compile.sh GPU GASAL STREAM 64
+	./run.sh 8 32 64
+	cat darwin.*.out | sort | uniq > ts
+	rm darwin.*.out
+	diff tg ts | head
+	./z_compile.sh GPU GASAL STREAM 64 CMAT
+	./run.sh 8 32 64
+	cat darwin.*.out | sort | uniq > ts
+	rm darwin.*.out
+	diff tg ts | head
+	./z_compile.sh GPU GASAL STREAM 64 CMAT CPBASES
+	./run.sh 8 32 64
+	cat darwin.*.out | sort | uniq > ts
+	rm darwin.*.out
+	diff tg ts | head
+
+exit 0
+
 function bench_and_compare {
 	date
 	./z_compile.sh
@@ -21,12 +49,12 @@ function bench_and_compare {
 
 function compare {
 	./z_compile.sh
-	./run.sh 8 1 1
-	cat darwin.*.out | sort > tg
+	./run.sh 16 1 1
+	cat darwin.*.out | sort | uniq > tg
 	rm darwin.*.out
-	./z_compile.sh GPU CMAT GASAL 64 STREAM
-	./run.sh 8 32 64
-	cat darwin.*.out | sort > ts
+	./z_compile.sh BATCH
+	./run.sh 16 16 64
+	cat darwin.*.out | sort | uniq > ts
 	rm darwin.*.out
 	diff tg ts | head
 }
@@ -49,9 +77,6 @@ function set_params {
 	./profile.sh f 1 256 64
 }
 
-#compare
-
-compare
 
 
 

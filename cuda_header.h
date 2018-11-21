@@ -352,10 +352,8 @@ if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
-#ifdef NOSCORE
+#ifndef NOSCORE
         i = 5;
-#else
-        i = 1;
 #endif
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
@@ -364,22 +362,12 @@ if(1){
         if(first){
             i_curr = maxXY_y;
             j_curr = maxXY_x;
-#ifdef NOSCORE
             out[0] = maxHH;
             out[3] = i_curr+1;
             out[4] = j_curr+1;
-#else
-            out[i++] = maxHH;
-            out[i++] = i_curr+1;
-            out[i++] = j_curr+1;
-#endif
         }else{
             //out[i++] = 32767;
-#ifdef NOSCORE
             out[0] = pos_score;
-#else
-            out[i++] = pos_score;
-#endif
             //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
@@ -427,12 +415,11 @@ if(1){
         }
     };
 
-#ifdef NOSCORE
+#ifndef NOSCORE
+    out[i] = -1;
+#endif
     out[1] = i_steps;
     out[2] = j_steps;
-#else
-    out[0] = i - 1;
-#endif
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);

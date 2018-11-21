@@ -499,7 +499,7 @@ io_lock.unlock();//*/
         time_gpu += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         t1 = std::chrono::high_resolution_clock::now();
 #endif
-#ifdef GPU
+/*#ifdef GPU
 #ifndef NOSCORE
         std::queue<int> q;
         int off = 0;
@@ -514,7 +514,7 @@ io_lock.unlock();//*/
             BT_statess.push_back(q);
         }
 #endif // NOSCORE
-#endif // GPU
+#endif // GPU*/
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
@@ -523,18 +523,22 @@ io_lock.unlock();//*/
 
             int i = 0;
             int j = 0;
-#ifdef NOSCORE
+#ifndef GPU
+            std::queue<int> BT_states = BT_statess[t];
+#else // GPU
             int idx = 5;
+#ifdef NOSCORE
             int *res = out + 5*t;
 #else
-            std::queue<int> BT_states = BT_statess[t];
-#endif
+            int *res = out + 2*tile_size*t;
+#endif // NOSCORE
+#endif // GPU
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
-#ifdef NOSCORE
+#ifdef GPU
             int tile_score = res[0];
 #else
             int tile_score = BT_states.front();
@@ -546,7 +550,7 @@ io_lock.unlock();//*/
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
                 if (first_tile) {
-#ifdef NOSCORE
+#ifdef GPU
                     int t1 = res[3];
                     int t2 = res[4];
 #else
@@ -573,10 +577,18 @@ io_lock.unlock();//*/
                     first_tile = false;
                 }
 #else
-                while (!BT_states.empty()) {
+#ifdef GPU
+                int state;
+                while ((state = res[idx++]) != -1)
+#else
+                while (!BT_states.empty())
+#endif
+                {
                     first_tile = false;
+#ifndef GPU
                     int state = BT_states.front();
                     BT_states.pop();
+#endif
                     if (state == M) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
@@ -600,7 +612,7 @@ io_lock.unlock();//*/
                 query_pos -= (i);
             }else{      // else forward
                 if (first_tile) {
-#ifdef NOSCORE
+#ifdef GPU
                     int t1 = res[3];
                     int t2 = res[4];
 #else
@@ -625,10 +637,18 @@ io_lock.unlock();//*/
                     first_tile = false;
                 }
 #else
-                while (!BT_states.empty()) {
+#ifdef GPU
+                int state;
+                while ((state = res[idx++]) != -1)
+#else
+                while (!BT_states.empty())
+#endif
+                {
                     first_tile = false;
+#ifndef GPU
                     int state = BT_states.front();
                     BT_states.pop();
+#endif
                     if (state == M) {
                         aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
                         aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);

@@ -283,7 +283,11 @@ int* Align_Batch_GPU( \
 
   cudaSafeCall(cudaStreamSynchronize(stream));
 
+#ifdef NOSCORE
+  cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 5, cudaMemcpyDeviceToHost));
+#else
   cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
+#endif // NOSCORE
 #else // GASAL
   cudaStream_t stream = s->stream->stream;
   cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
@@ -348,6 +352,7 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
   int size_outs = 2*tile_size;
 #endif // NOSCORE
 #else // GASAL
+  int size_outs = 2*tile_size;
 #ifndef COMPRESS_DIR
   //int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
   int size_matrices = sizeof(int)*(tile_size+1)*(tile_size+9);

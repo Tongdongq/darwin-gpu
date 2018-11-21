@@ -413,10 +413,10 @@ io_lock.unlock();//*/
 #endif
                         {
                             fout
-                            //<< "ref_id: " << reference_descrips[c->ref_id][0]
-                            //<< ", query_id: " << reads_descrips[c->query_id][0]
-                            << "ref_id: " << c->ref_id
-                            << ", query_id: " << c->query_id
+                            << "ref_id: " << reference_descrips[c->ref_id][0]
+                            << ", query_id: " << reads_descrips[c->query_id][0]
+                            //<< "ref_id: " << c->ref_id
+                            //<< ", query_id: " << c->query_id
                             << ", ab: " << c->ref_bpos
                             << ", ae: " << ref_pos
                             << ", bb: " << c->query_bpos
@@ -500,6 +500,7 @@ io_lock.unlock();//*/
         t1 = std::chrono::high_resolution_clock::now();
 #endif
 #ifdef GPU
+#ifndef NOSCORE
         std::queue<int> q;
         int off = 0;
         BT_statess.clear();
@@ -512,7 +513,8 @@ io_lock.unlock();//*/
             off += (2 * tile_size);
             BT_statess.push_back(q);
         }
-#endif
+#endif // NOSCORE
+#endif // GPU
         // postprocess
         for(int t = 0; t < BATCH_SIZE; ++t){
             int callidx = assignments[t];
@@ -521,25 +523,38 @@ io_lock.unlock();//*/
 
             int i = 0;
             int j = 0;
-
+#ifdef NOSCORE
+            int idx = 5;
+            int *res = out + 5*t;
+#else
             std::queue<int> BT_states = BT_statess[t];
+#endif
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
+#ifdef NOSCORE
+            int tile_score = res[0];
+#else
             int tile_score = BT_states.front();
-            int first_tile_score;
             BT_states.pop();
+#endif
+            int first_tile_score;
 //printf("T%d tile score: %d, num elements: %d\n", t, tile_score, BT_states.size());
             // if reverse
             if(c->reverse == 1){
                 //printf("T%d tb in reverse dir\n");
                 if (first_tile) {
-                    ref_pos = ref_pos - ref_tile_length + BT_states.front();
-                    BT_states.pop();
-                    query_pos = query_pos - query_tile_length + BT_states.front();
-                    BT_states.pop();
+#ifdef NOSCORE
+                    int t1 = res[3];
+                    int t2 = res[4];
+#else
+                    int t1 = BT_states.front();BT_states.pop();
+                    int t2 = BT_states.front();BT_states.pop();
+#endif
+                    ref_pos = ref_pos - ref_tile_length + t1;
+                    query_pos = query_pos - query_tile_length + t2;
                     c->ref_bpos = ref_pos;
                     c->query_bpos = query_pos;
                     c->first_tile_score = tile_score;
@@ -551,6 +566,13 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
+#ifdef NOSCORE
+                j = res[1];
+                i = res[2];
+                if(i + j > 0){
+                    first_tile = false;
+                }
+#else
                 while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();
@@ -572,15 +594,21 @@ io_lock.unlock();//*/
                         i += 1;
                     }
                 }
+#endif
                 //printf("T%d done with tb in rev dir, i: %d, j: %d\n", t, i, j);
                 ref_pos -= (j);
                 query_pos -= (i);
             }else{      // else forward
                 if (first_tile) {
-                    ref_pos = ref_pos + ref_tile_length - BT_states.front();
-                    BT_states.pop();
-                    query_pos = query_pos + query_tile_length - BT_states.front();
-                    BT_states.pop();
+#ifdef NOSCORE
+                    int t1 = res[3];
+                    int t2 = res[4];
+#else
+                    int t1 = BT_states.front();BT_states.pop();
+                    int t2 = BT_states.front();BT_states.pop();
+#endif
+                    ref_pos = ref_pos + ref_tile_length - t1;
+                    query_pos = query_pos + query_tile_length - t2;
                     c->first_tile_score = tile_score;
                     if (tile_score < first_tile_score_threshold) {
                         //terminate[t] = 2;
@@ -590,6 +618,13 @@ io_lock.unlock();//*/
                         continue;
                     }
                 }
+#ifdef NOSCORE
+                int j = res[1];
+                int i = res[2];
+                if(i + j > 0){
+                    first_tile = false;
+                }
+#else
                 while (!BT_states.empty()) {
                     first_tile = false;
                     int state = BT_states.front();
@@ -611,6 +646,7 @@ io_lock.unlock();//*/
                         i += 1;
                     }
                 }
+#endif
                 ref_pos += (j);
                 query_pos += (i);
             }   // end traceback

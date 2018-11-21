@@ -35,6 +35,8 @@ do
 		options="$options -D GASAL";;
 	"CPBASES")
 		options="$options -D COALESCE_PACKED_BASES";;
+	"NOSCORE")
+		options="$options -D NOSCORE";;
 	"32")
 		maxregcount=32;;
 	"64")

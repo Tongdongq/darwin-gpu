@@ -359,6 +359,7 @@ int batch_no = 0;
                 if(ref_pos >= ref_length || query_pos >= query_length || terminate[t]){
                     if(terminate[t] != 2){
                         int total_score = 0;
+#ifndef NOSCORE
                         bool open = true;
                         for (uint32_t j = 0; j < aligned_ref_strs[callidx].length(); j++) {
                             char ref_nt = aligned_ref_strs[callidx][j];
@@ -375,6 +376,7 @@ if(c->ref_id == 98 && c->query_id == 3){
                                 open = true;
                             }
                         }
+#endif
 /*io_lock.lock();
     printf("ref_id: %d, query_id: %d, ab: %d, ae: %d, bb: %d, be: %d, score: %d, comp: %d\n", c->ref_id, c->query_id, c->ref_bpos, ref_pos, c->query_bpos, query_pos, total_score, complement);
 
@@ -404,19 +406,24 @@ if(1){
     }printf("\n");
 }
 io_lock.unlock();//*/
-                    if(!(same_file && c->ref_id == c->query_id) && total_score > 0){
-                        fout
-                        //<< "ref_id: " << reference_descrips[c->ref_id][0]
-                        //<< ", query_id: " << reads_descrips[c->query_id][0]
-                        << "ref_id: " << c->ref_id
-                        << ", query_id: " << c->query_id
-                        << ", ab: " << c->ref_bpos
-                        << ", ae: " << ref_pos
-                        << ", bb: " << c->query_bpos
-                        << ", be: " << query_pos
-                        << ", score: " << total_score
-                        << ", comp: " << complement << std::endl;//*/
-                    }
+#ifdef NOSCORE
+                        if(!(same_file && c->ref_id == c->query_id))
+#else
+                        if(!(same_file && c->ref_id == c->query_id) && total_score > 0)
+#endif
+                        {
+                            fout
+                            //<< "ref_id: " << reference_descrips[c->ref_id][0]
+                            //<< ", query_id: " << reads_descrips[c->query_id][0]
+                            << "ref_id: " << c->ref_id
+                            << ", query_id: " << c->query_id
+                            << ", ab: " << c->ref_bpos
+                            << ", ae: " << ref_pos
+                            << ", bb: " << c->query_bpos
+                            << ", be: " << query_pos
+                            << ", score: " << total_score
+                            << ", comp: " << complement << std::endl;//*/
+                        }
 
                         calls_done++;
                         assignments[t] = next_callidx;

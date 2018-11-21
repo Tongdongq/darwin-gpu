@@ -20,6 +20,11 @@ struct CUDA_Stream_Holder {
     cudaStream_t stream;  
 };
 
+#ifdef NOSCORE
+    #ifndef GASAL
+        #error NOSCORE cannot be used without GASAL
+    #endif
+#endif
 
 #ifndef NOCUDA
 __constant__ int _tile_size;
@@ -130,7 +135,11 @@ __global__ void gasal_pack_kernel( \
         const int query_pos = query_poss[tid];
         const int ref_pos = ref_poss[tid];
         const int row_len = _tile_size + 2;
+#ifdef NOSCORE
+        out += 5*tid;
+#else
         out += (_tile_size * 2 * tid);
+#endif
         //uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
         //uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 #ifndef COALESCE_PACKED_BASES
@@ -343,7 +352,9 @@ if(1){
         //printf("T%d tile done, max score: %d, max_i: %d, max_j: %d\n", tid, maxHH, maxXY_y, maxXY_x);
 }
 
-        i = 1;
+#ifndef NOSCORE
+        i = 5;
+#endif
         int i_curr = ref_pos-1, j_curr = query_pos-1;
         int i_steps = 0, j_steps = 0;
 //if(tid==2)printf("X T%d curr i: %d, j: %d\n", tid, i_curr, j_curr);
@@ -351,12 +362,12 @@ if(1){
         if(first){
             i_curr = maxXY_y;
             j_curr = maxXY_x;
-            out[i++] = maxHH;
-            out[i++] = i_curr+1;
-            out[i++] = j_curr+1;
+            out[0] = maxHH;
+            out[3] = i_curr+1;
+            out[4] = j_curr+1;
         }else{
             //out[i++] = 32767;
-            out[i++] = pos_score;
+            out[0] = pos_score;
             //printf("T%d non first score: %d, query_pos: %d, ref_pos: %d\n", tid, pos_score, query_pos, ref_pos);
         }
 //printf("T%d dir_matrix: %p\n", tid, dir_matrix);
@@ -369,7 +380,9 @@ if(1){
         if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
             break;
         }
+#ifndef NOSCORE
         out[i++] = state;
+#endif
 //if(tid==0)printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr, j_curr, i_steps, j_steps, i);
         if (state == M) {
             int idx = ((i_curr-1)*row_len+j_curr-1);
@@ -402,8 +415,12 @@ if(1){
         }
     };
 
-
-        out[0] = i - 1;
+#ifdef NOSCORE
+    out[1] = i_steps;
+    out[2] = j_steps;
+#else
+    out[i] = -1;
+#endif
     /*printf("T%d tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n", \
     tid, i_curr, j_curr, i_steps, j_steps);*/
     //printf("T%d has %d elements\n", tid, i-1);

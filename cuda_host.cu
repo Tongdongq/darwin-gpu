@@ -342,6 +342,11 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
 
 #ifdef GASAL
   int size_matrices = (tile_size+2)*(tile_size+2);
+#ifdef NOSCORE
+  int size_outs = 5;
+#else // NOSCORE
+  int size_outs = 2*tile_size;
+#endif // NOSCORE
 #else // GASAL
 #ifndef COMPRESS_DIR
   //int size_matrices = sizeof(int)*(tile_size+1)*8 + (tile_size+1)*(tile_size+1);
@@ -371,10 +376,8 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_query_seqs_d), BATCH_SIZE*tile_size));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
     cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
-#else
-    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*2*tile_size));
 #endif
+    cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*size_outs));
     size_t free, total;
     cudaMemGetInfo(&free,&total);
     printf("%d MB free of total %d MB\n",free/1024/1024,total/1024/1024);

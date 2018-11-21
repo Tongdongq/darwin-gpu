@@ -32,7 +32,6 @@ int sub_mat[25] = {
     0, 0, 0, 0, 0
 };
 
-
 // declared in reference_guided.cpp
 extern bool same_file;
 extern std::vector<std::string> reference_seqs;
@@ -223,7 +222,7 @@ void GACT (char *ref_str, char *query_str, \
     std::cout << aligned_ref_str << std::endl;
 io_lock.unlock();//*/
 
-    if(!(same_file && ref_id == query_id)){
+    if(!(same_file && ref_id == query_id) && total_score > 0){
         fout
         //<< "ref_id: " << reference_descrips[ref_id][0]
         //<< ", query_id: " << reads_descrips[query_id][0]
@@ -405,7 +404,7 @@ if(1){
     }printf("\n");
 }
 io_lock.unlock();//*/
-                    if(!(same_file && c->ref_id == c->query_id)){
+                    if(!(same_file && c->ref_id == c->query_id) && total_score > 0){
                         fout
                         //<< "ref_id: " << reference_descrips[c->ref_id][0]
                         //<< ", query_id: " << reads_descrips[c->query_id][0]

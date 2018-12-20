@@ -203,11 +203,8 @@ __global__ void gasal_pack_kernel( \
 #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++, ii++) {
                             uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
-                            //DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-                            //int ins_open = h[m-1] + _gap_open;
                             int ins_open = z + _gap_open;
                             int ins_extend = e + _gap_extend;
-                            //int del_open = h[m] + _gap_open;
                             int del_open = d[m] + _gap_open;
                             int del_extend = f[m] + _gap_extend;
                             AlnOp tmp = ZERO_OP;
@@ -237,15 +234,8 @@ __global__ void gasal_pack_kernel( \
 
                             h[m] = tmp2;
 
-                            //f[m] = max(h[m] + _gap_open, f[m] + _gap_extend);//whether to introduce or extend a gap in query_batch sequence
-                            //h[m] = max(h[m], f[m]);
-                            //h[m] = max(h[m], 0);
-                            //e = max(prev_hm_diff, e + _gap_extend);//whether to introduce or extend a gap in target_batch sequence
-                            //e = max(h[m-1] + _gap_open, e + _gap_extend);
-                            //h[m] = max(h[m], e);
-                            //FIND_MAX(h[m], gidx + (m-1));//the current maximum score and corresponding end position on target_batch sequence
-
-                            /*if(h[m] == maxHH){  
+                            // maximum score tie resolvement: keep element with highest i, if they have the same i, keep element with highest j
+                            if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;
                                     maxXY_x = jj;
@@ -263,33 +253,16 @@ __global__ void gasal_pack_kernel( \
                                 maxXY_y = ii;
                                 maxXY_x = jj;
                                 maxHH = h[m]; 
-                            }//*/
+                            }
 
                             p[m] = h[m-1];
+
+                            // store tracebackpointer for this element
                             int idx = ii*row_len + jj;
                             idx *= __X;
                             dir_matrix[idx] = tmp;
 
-                            asm("{\n\t"
-                                " .reg .pred p, q, r, s, t;\n\t"
-                                " setp.eq.s32 p, %3, %0;\n\t"   // if h[m] == maxHH
-                                " setp.gt.s32 q, %4, %1;\n\t"   // if ii > maxXY_y
-                                " setp.eq.s32 r, %4, %1;\n\t"   // if ii == maxXY_y
-                                " setp.gt.s32 s, %5, %2;\n\t"   // if jj > maxXY_x
-                                " setp.gt.s32 t, %3, %0;\n\t"   // if h[m] > maxHH
-                                " and.pred r, r, s;\n\t"        // r = r && s
-                                " or.pred q, q, r;\n\t"         // q = q || r
-                                " and.pred p, p, q;\n\t"        // p = p && q
-                                " or.pred t, t, p;\n\t"         // t = t || p
-                                " selp.s32 %1, %4, %1, t;\n\t"  // if t: maxXY_y = ii
-                                " selp.s32 %2, %5, %2, t;\n\t"  // if t: maxXY_x = jj
-                                " selp.s32 %0, %3, %0, t;\n\t"  // if t: maxHH = h[m]
-                                "}"
-                                : "+r" (maxHH), "+r" (maxXY_y), "+r" (maxXY_x)
-                                : "r" (h[m]), "r" (ii), "r" (jj)
-                                );//*/
-
-                            //dir_matrix[(ii*row_len+jj)*__X] = tmp;
+                            // might be able to remove this and use out[0] = h[m-1]
                             if(ii == ref_pos-1 && jj == query_pos-1){
                                 pos_score = h[m];
                             }
@@ -300,17 +273,11 @@ __global__ void gasal_pack_kernel( \
                         HD.z = z;
                         global[ridx] = HD;
                         //---------------------------------------------
-                        //maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
-                        //prev_maxHH = max(maxHH, prev_maxHH);
                         ridx++;
                     } // end of 8x8 tile
                 //-------------------------------------------------------
             } // end for all query bases
         } // end for all target bases
-
-        //score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-        //query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
-        //target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 #ifndef NOSCORE
         i = 5;
@@ -326,6 +293,7 @@ __global__ void gasal_pack_kernel( \
             out[4] = j_curr+1;
         }else{
             out[0] = pos_score;
+            //out[0] = h[m-1];
         }
 
         int idx = i_curr*row_len + j_curr;
@@ -422,15 +390,11 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
     for (int i = 0; i < query_len + 1; i++) {
         h_matrix_rd[i*__X] = 0;
         m_matrix_rd[i*__X] = 0;
-        //i_matrix_rd[i*__X] = -INF;
-        //d_matrix_rd[i*__X] = -INF;
         i_matrix_rd[i*__X] = 0;
         d_matrix_rd[i*__X] = 0;
        
         h_matrix_wr[i*__X] = 0;
         m_matrix_wr[i*__X] = 0;
-        //i_matrix_wr[i*__X] = -INF;
-        //d_matrix_wr[i*__X] = -INF;
         i_matrix_wr[i*__X] = 0;
         d_matrix_wr[i*__X] = 0;
     }
@@ -456,31 +420,18 @@ __global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
             i_matrix_rd[k*__X] = i_matrix_wr[k*__X];
             d_matrix_rd[k*__X] = d_matrix_wr[k*__X];
         }
-char ref_nt = ref_seq[(i-1)*__Y];
+		
+		char ref_nt = ref_seq[(i-1)*__Y];
+
         //j - row number; i - column number
         for (int j = 1; j < query_len + 1; j++) {
-            //int ref_nt = (reverse) ? NtChar2Int(ref_seq[ref_len-i]) : NtChar2Int(ref_seq[i-1]);
-            //int query_nt = (reverse) ? NtChar2Int(query_seq[query_len-j]) : NtChar2Int(query_seq[j-1]);
             // reverse indicates the direction of the alignment
             // 1: towards position = 0, 0: towards position = length
-            //char ref_nt = (reverse) ? ref_seq[(i-1)*__Y] : ref_seq[(ref_len-i)*__Y];
-            //char query_nt = (reverse) ? query_seq[(j-1)*__Y] : query_seq[(query_len-j)*__Y];
-            //char ref_nt = ref_seq[(i-1)*__Y];
             char query_nt = query_seq[(j-1)*__Y];
             int match = (query_nt == ref_nt) ? _match : _mismatch;
 
             //columnwise calculations
             // find out max value
-            /*if (m_matrix_rd[j-1] > i_matrix_rd[j-1] && m_matrix_rd[j-1] > d_matrix_rd[j-1]) {
-                m_matrix_wr[j] = m_matrix_rd[j-1] + match;
-            } else if (i_matrix_rd[j-1] > d_matrix_rd[j-1]) {
-                m_matrix_wr[j] = i_matrix_rd[j-1] + match;
-            } else {
-                m_matrix_wr[j] = d_matrix_rd[j-1] + match;
-            }
-            if (m_matrix_wr[j] < 0) {
-                m_matrix_wr[j] = 0;
-            }//*/
             int tmp2 = m_matrix_rd[(j-1)*__X];
             if(i_matrix_rd[(j-1)*__X] > tmp2){
                 tmp2 = i_matrix_rd[(j-1)*__X];
@@ -503,18 +454,6 @@ char ref_nt = ref_seq[(i-1)*__Y];
 
             d_matrix_wr[j*__X] = (del_open > del_extend) ? del_open : del_extend;
 
-            /*int max1 = m_matrix_wr[j] > i_matrix_wr[j] ? m_matrix_wr[j] : i_matrix_wr[j];
-            int max2 = d_matrix_wr[j] > 0 ? d_matrix_wr[j] : 0;
-            h_matrix_wr[j] = max1 > max2 ? max1 : max2;//*/
-
-            /*(dir_matrix)[i*row_len+j] = ((m_matrix_wr[j] >= i_matrix_wr[j]) ? \
-              ((m_matrix_wr[j] >= d_matrix_wr[j]) ? MATCH_OP : DELETE_OP) : \
-              ((i_matrix_wr[j] >= d_matrix_wr[j]) ? INSERT_OP : DELETE_OP));
-
-            if ((m_matrix_wr[j] <= 0) && (i_matrix_wr[j] <= 0) && (d_matrix_wr[j] <= 0)) {
-                (dir_matrix)[i*row_len+j] = ZERO_OP;
-            }//*/
-
             // this code is slower on CPU, probably due to lower ILP
             // but it is 13-14% faster on GPU, probably due to less branching
             AlnOp tmp = ZERO_OP;
@@ -531,37 +470,22 @@ char ref_nt = ref_seq[(i-1)*__Y];
               tmp2 = d_matrix_wr[j*__X];
               tmp = DELETE_OP;
             }
-            /*(dir_matrix)[(i*row_len+j)*__X] = tmp;
-            h_matrix_wr[j*__X] = tmp2;
-            (dir_matrix)[(i*row_len+j)*__X] += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-            (dir_matrix)[(i*row_len+j)*__X] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-            // 7% speedup*/
+
             h_matrix_wr[j*__X] = tmp2;
 
 
             tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
             tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 
-            (dir_matrix)[(i*row_len+j)*__X] = tmp;//*/
-
-            /*if (h_matrix_wr[j] >= max_score) {
-                max_score = h_matrix_wr[j];
-                max_i = i;
-                max_j = j;
-            }// 4% speedup*/
+            (dir_matrix)[(i*row_len+j)*__X] = tmp;
 
             if (tmp2 >= max_score) {
                 max_score = tmp2;
                 max_i = i;
                 max_j = j;
-            }//*/
-
-            if ((i == ref_pos) && (j == query_pos)) {
-                //pos_score = h_matrix_wr[j*__X];
-            }//*/
-
-        }
-    }
+            }
+        } // end column
+    } // end row
 
     int *BT_states = out;
     int i = 1;
@@ -575,7 +499,6 @@ char ref_nt = ref_seq[(i-1)*__Y];
         BT_states[i++] = i_curr;
         BT_states[i++] = j_curr;
     }else{
-        //BT_states[i++] = pos_score;
         BT_states[i++] = h_matrix_wr[query_len*__X];
     }
 

@@ -37,8 +37,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #define PRINT_SEED_POS_CONSTRUCT TRUE
 
-//enum states {Z, D, I, M};
-
 // true iff both fasta files have the same name
 bool same_file = false;
 
@@ -46,7 +44,7 @@ int NUM_BLOCKS;
 int THREADS_PER_BLOCK;
 int BATCH_SIZE;
 
-// GACT scoring
+// GACT scoring, put gact_sub_mat back if match_score and mismatch_score are not enough
 //int gact_sub_mat[10];
 int match_score;
 int mismatch_score;
@@ -216,12 +214,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
         // Forward reads
         num_candidates_for = sa->DSOFT(reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
         total_calls_for += num_candidates_for;
-        //io_lock.lock();
-        //std::cout << "Read (+) " << k << ": " << num_candidates_for << std::endl;
         for (int i = 0; i < num_candidates_for; i++) {
-            //PrintTileLocation(reads_descrips[k][0], \
-                (candidate_hit_offset[i] >> 32), \
-                ((candidate_hit_offset[i] << 32) >> 32), '+');
             int ref_pos = (candidate_hit_offset[i] >> 32);
             int chr_id = bin_to_chr_id[ref_pos/bin_size];
             uint32_t start_bin = chr_id_to_start_bin[chr_id];
@@ -229,7 +222,6 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
             if(ref_pos > reference_lengths[chr_id]){
-                //printf("WARNING ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
                 ref_pos = reference_lengths[chr_id];
             }
 #ifdef BATCH
@@ -256,18 +248,12 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
                 fout);//*/
 #endif
         }   // end for all num_candidates_for seed hits
-        //io_lock.unlock();
 
 
         // Reverse complement reads
         num_candidates_rev = sa->DSOFT(rev_reads_char[k], len, num_seeds, dsoft_threshold, candidate_hit_offset, bin_count_offset_array, nz_bins_array, max_candidates);
         total_calls_rev += num_candidates_rev;
-        //io_lock.lock();
-        //std::cout << "Read (-) " << k << ": " << num_candidates_rev << std::endl;
         for (int i = 0; i < num_candidates_rev; i++) {
-            //PrintTileLocation(reads_descrips[k][0], \
-                (candidate_hit_offset[i] >> 32), \
-                ((candidate_hit_offset[i] << 32) >> 32), '-');
             int ref_pos = (candidate_hit_offset[i] >> 32);
             int chr_id = bin_to_chr_id[ref_pos/bin_size];
             uint32_t start_bin = chr_id_to_start_bin[chr_id];
@@ -275,7 +261,6 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
             int query_pos = candidate_hit_offset[i] & 0xffffffff;
 
             if(ref_pos > reference_lengths[chr_id]){
-                //printf("WARNING rev ref_pos > ref_len: %d > %d, callidx: %d, but I fixed it\n", ref_pos, reference_lengths[chr_id], idx);
                 ref_pos = reference_lengths[chr_id];
             }
 #ifdef BATCH
@@ -302,7 +287,6 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
                 fout);//*/
 #endif
         }   // end for all num_candidates_rev seed hits
-        //io_lock.unlock();
     }   // end for every read assigned to this CPU thread
 
     io_lock.lock();
@@ -317,15 +301,6 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
     io_lock.lock();
     std::cout << "Time finding seeds: " << mseconds <<" msec" << std::endl;
     io_lock.unlock();
-    /*for(int i = 0; i < total_calls_for; ++i){
-        GACT_call *c = &(GACT_calls_for[i]);
-        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d +\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
-    }
-    for(int i = 0; i < total_calls_rev; ++i){
-        GACT_call *c = &(GACT_calls_rev[i]);
-        printf("GACT_call %d, ref_id: %d, query_id: %d, ref_pos: %d, query_pos: %d, ref_len: %d, query_len: %d -\n", i, c->ref_id, c->query_id, c->ref_pos, c->query_pos, reference_lengths[c->ref_id], reads_lengths[c->query_id]);
-    }//*/
-
     gettimeofday(&begin, NULL);
 
 #ifdef GPU
@@ -454,6 +429,7 @@ void AlignReads (int start_read_num, int last_read_num, int cpu_id)
 
     gettimeofday(&begin, NULL);
 
+    // start aligning the GACTcalls
     GACT_Batch(GACT_calls_for, total_calls_for, false, 0, &s, \
         match_score, mismatch_score, gap_open, gap_extend, fout);
 

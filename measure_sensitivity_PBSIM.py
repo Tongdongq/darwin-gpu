@@ -29,12 +29,11 @@ else:
 
 # analyze all reads
 # data header: id, startpos in genome, length of overlap
-if daligner == 0:
-	f1 = open('reference.fasta','r')
-	if ref_vs_read == 1:
-		f2 = open('reads.fasta','r')
-	else:
-		f2 = open('reference.fasta','r')
+f1 = open('reference.fasta','r')
+if ref_vs_read == 1:
+	f2 = open('reads.fasta','r')
+else:
+	f2 = open('reference.fasta','r')
 
 list1 = []		# contains info from f1
 list2 = []		# contains info from f2

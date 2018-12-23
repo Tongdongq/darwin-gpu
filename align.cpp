@@ -15,42 +15,42 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, \
-  std::vector<std::string> query_seqs, \
-  std::vector<int> ref_lens, std::vector<int> query_lens, \
-  int match_score, int mismatch_score, int gap_open, int gap_extend, \
-  std::vector<int> ref_poss_b, std::vector<int> query_poss_b, \
-  std::vector<char> reverses, std::vector<char> firsts, int early_terminate){
+    std::vector<std::string> query_seqs, \
+    std::vector<int> ref_lens, std::vector<int> query_lens, \
+    int match_score, int mismatch_score, int gap_open, int gap_extend, \
+    std::vector<int> ref_poss_b, std::vector<int> query_poss_b, \
+    std::vector<char> reverses, std::vector<char> firsts, int early_terminate){
 
-  std::vector<std::queue<int> > result;
+    std::vector<std::queue<int> > result;
 
-  int BATCH_SIZE = ref_seqs.size();
+    int BATCH_SIZE = ref_seqs.size();
 
-  for(int j = 0; j < BATCH_SIZE; ++j){
-    char *ref_seq = (char*)ref_seqs[j].c_str();
-    char *query_seq = (char*)query_seqs[j].c_str();
-    long long int ref_len = ref_lens[j];
-    long long int query_len = query_lens[j];
-    int ref_pos = ref_poss_b[j];
-    int query_pos = query_poss_b[j];
-    bool reverse = (reverses[j] == 1);
-    bool first = (firsts[j] == 1);
+    for(int j = 0; j < BATCH_SIZE; ++j){
+        char *ref_seq = (char*)ref_seqs[j].c_str();
+        char *query_seq = (char*)query_seqs[j].c_str();
+        long long int ref_len = ref_lens[j];
+        long long int query_len = query_lens[j];
+        int ref_pos = ref_poss_b[j];
+        int query_pos = query_poss_b[j];
+        bool reverse = (reverses[j] == 1);
+        bool first = (firsts[j] == 1);
 
-    std::queue<int> BT_states;
+        std::queue<int> BT_states;
 
-    if(ref_len == -1){
-      // push empty queue, otherwise GACT_Batch will misinterpret BT_statess
-      result.push_back(BT_states);
-      continue;
+        if(ref_len == -1){
+            // push empty queue, otherwise GACT_Batch will misinterpret BT_statess
+            result.push_back(BT_states);
+            continue;
+        }
+
+        BT_states = AlignWithBT(ref_seq, ref_len, query_seq, query_len, \
+            match_score, mismatch_score, gap_open, gap_extend, \
+            query_pos, ref_pos, reverse, first, early_terminate);
+
+        result.push_back(BT_states);
     }
 
-    BT_states = AlignWithBT(ref_seq, ref_len, query_seq, query_len, \
-      match_score, mismatch_score, gap_open, gap_extend, \
-      query_pos, ref_pos, reverse, first, early_terminate);
-
-    result.push_back(BT_states);
-  }
-
-  return result;
+    return result;
 }
 
 
@@ -58,211 +58,148 @@ std::vector<std::queue<int> > Align_Batch(std::vector<std::string> ref_seqs, \
 
 //return the output of the int queue
 std::queue<int> AlignWithBT(char* ref_seq, long long int ref_len, \
-  char* query_seq, long long int query_len, \
-  int match_score, int mismatch_score, int gap_open, int gap_extend, \
-  int query_pos, int ref_pos, bool reverse, bool first, int early_terminate) {
+    char* query_seq, long long int query_len, \
+    int match_score, int mismatch_score, int gap_open, int gap_extend, \
+    int query_pos, int ref_pos, bool reverse, bool first, int early_terminate) {
 
-  // terminate the prgram if the R or Q length is greater than the tile size
-  assert(ref_len < MAX_TILE_SIZE);
-  assert(query_len < MAX_TILE_SIZE);
+    // terminate the prgram if the R or Q length is greater than the tile size
+    assert(ref_len < MAX_TILE_SIZE);
+    assert(query_len < MAX_TILE_SIZE);
 
-  //printf("AlignWithBT: ref_len: %d, query_len: %d, query_pos: %d, ref_pos: %d, reverse: %d, first: %d\n", ref_len, query_len, query_pos, ref_pos, reverse, first);//*/
-  /*for(int i = 0; i < ref_len; ++i){
-    if(i % 10 == 0){printf(" ");}
-    printf("%c", ref_seq[i]);
-  }printf("\n");
-  for(int i = 0; i < query_len; ++i){
-    if(i % 10 == 0){printf(" ");}
-    printf("%c", query_seq[i]);
-  }printf("\nrev strings\n");
-    for(int i = 0; i < ref_len; ++i){
-    if(i % 10 == 0){printf(" ");}
-    printf("%c", ref_seq[ref_len-i-1]);
-  }printf("\n");
-  for(int i = 0; i < query_len; ++i){
-    if(i % 10 == 0){printf(" ");}
-    printf("%c", query_seq[query_len-i-1]);
-  }printf("\n");//*/
+    //2 copies of the vectors for the previous/new values 
+    //max of all other
+    int h_matrix_wr[MAX_TILE_SIZE + 1];
+    //matches
+    int m_matrix_wr[MAX_TILE_SIZE + 1];
+    //vector for insertion penalties
+    int i_matrix_wr[MAX_TILE_SIZE + 1];
+    //vector for deletion penalties
+    int d_matrix_wr[MAX_TILE_SIZE + 1];
 
+    int h_matrix_rd[MAX_TILE_SIZE + 1];
+    int m_matrix_rd[MAX_TILE_SIZE + 1];
+    int i_matrix_rd[MAX_TILE_SIZE + 1];
+    int d_matrix_rd[MAX_TILE_SIZE + 1];
 
-  //2 copies of the vectors for the previous/new values 
-  //max of all other
-  int h_matrix_wr[MAX_TILE_SIZE + 1];
-  //matches
-  int m_matrix_wr[MAX_TILE_SIZE + 1];
-  //vector for insertion penalties
-  int i_matrix_wr[MAX_TILE_SIZE + 1];
-  //vector for deletion penalties
-  int d_matrix_wr[MAX_TILE_SIZE + 1];
+    //operands for alignment in the matrix - according to Smith Waterman's rules
+    std::vector< std::vector<AlnOp> > dir_matrix(MAX_TILE_SIZE+1, std::vector<AlnOp>(MAX_TILE_SIZE+1,0));
 
-  int h_matrix_rd[MAX_TILE_SIZE + 1];
-  int m_matrix_rd[MAX_TILE_SIZE + 1];
-  int i_matrix_rd[MAX_TILE_SIZE + 1];
-  int d_matrix_rd[MAX_TILE_SIZE + 1];
+    for (int i = 0; i < query_len + 1; i++) {
+        h_matrix_rd[i] = 0;
+        m_matrix_rd[i] = 0;
+        i_matrix_rd[i] = -INF;
+        d_matrix_rd[i] = -INF;
+     
+        h_matrix_wr[i] = 0;
+        m_matrix_wr[i] = 0;
+        i_matrix_wr[i] = -INF;
+        d_matrix_wr[i] = -INF;
+    }
+    
+    //initialize the operands int he direction matrix for the first row and first
+    //column
+    for (int i = 0; i < ref_len + 1; i++) {
+        dir_matrix[i][0] = ZERO_OP;
+    }
 
-  //operands for alignment in the matrix - according to Smith Waterman's rules
-  //AlnOp dir_matrix[MAX_TILE_SIZE+1][MAX_TILE_SIZE+1];
-  std::vector< std::vector<AlnOp> > dir_matrix(MAX_TILE_SIZE+1, std::vector<AlnOp>(MAX_TILE_SIZE+1,0));
+    for (int j = 0; j < query_len + 1; j++) {
+        dir_matrix[0][j] = ZERO_OP;
+    }
 
-  for (int i = 0; i < query_len + 1; i++) {
-    h_matrix_rd[i] = 0;
-    m_matrix_rd[i] = 0;
-    i_matrix_rd[i] = -INF;
-    d_matrix_rd[i] = -INF;
-   
-    h_matrix_wr[i] = 0;
-    m_matrix_wr[i] = 0;
-    i_matrix_wr[i] = -INF;
-    d_matrix_wr[i] = -INF;
-  }
-  
-  //initialize the operands int he direction matrix for the first row and first
-  //column
-  for (int i = 0; i < ref_len + 1; i++) {
-      dir_matrix[i][0] = ZERO_OP;
-  }
+    int max_score = 0; 
+    int pos_score = 0; 
+    int max_i = 0; 
+    int max_j = 0; 
 
-  for (int j = 0; j < query_len + 1; j++) {
-      dir_matrix[0][j] = ZERO_OP;
-  }
+    for (int i = 1; i < ref_len + 1; i++) {
+        for (int k = 1; k < MAX_TILE_SIZE + 1; k++) {
+                m_matrix_rd[k] = m_matrix_wr[k];
+                h_matrix_rd[k] = h_matrix_wr[k];
+                i_matrix_rd[k] = i_matrix_wr[k];
+                d_matrix_rd[k] = d_matrix_wr[k];
+        }
 
-  
-  int max_score = 0; 
-  int pos_score = 0; 
-  int max_i = 0; 
-  int max_j = 0; 
-
-  for (int i = 1; i < ref_len + 1; i++) {
-      for (int k = 1; k < MAX_TILE_SIZE + 1; k++) {
-          m_matrix_rd[k] = m_matrix_wr[k];
-          h_matrix_rd[k] = h_matrix_wr[k];
-          i_matrix_rd[k] = i_matrix_wr[k];
-          d_matrix_rd[k] = d_matrix_wr[k];
-      }
-
-      //j - row number; i - column number
-      for (int j = 1; j < query_len + 1; j++) {
-          //int ref_nt = (reverse) ? NtChar2Int(ref_seq[ref_len-i]) : NtChar2Int(ref_seq[i-1]);
-          //int query_nt = (reverse) ? NtChar2Int(query_seq[query_len-j]) : NtChar2Int(query_seq[j-1]);
-          // reverse indicates the direction of the alignment
-          // 1: towards position = 0, 0: towards position = length
+        //j - row number; i - column number
+        for (int j = 1; j < query_len + 1; j++) {
+            // reverse indicates the direction of the alignment
+            // 1: towards position = 0, 0: towards position = length
 #ifdef BATCH
-          char ref_nt = (reverse) ? ref_seq[i-1] : ref_seq[ref_len-i];
-          char query_nt = (reverse) ? query_seq[j-1] : query_seq[query_len-j];
+            char ref_nt = (reverse) ? ref_seq[i-1] : ref_seq[ref_len-i];
+            char query_nt = (reverse) ? query_seq[j-1] : query_seq[query_len-j];
 #else
-          char ref_nt = (reverse) ? ref_seq[ref_len-i] : ref_seq[i-1];
-          char query_nt = (reverse) ? query_seq[query_len-j] : query_seq[j-1];
+            char ref_nt = (reverse) ? ref_seq[ref_len-i] : ref_seq[i-1];
+            char query_nt = (reverse) ? query_seq[query_len-j] : query_seq[j-1];
 #endif
 
-//printf("query_nt: %d, %c\n", query_nt, query_seq[query_len-j]);
-          /*int match;
-          //case of unknown nucleotide in either reference or query
-          if (ref_nt == N_NT || query_nt == N_NT) {
-              match = -INF; // Force N's to align with gaps
-          } else {
-              //value from the W matrix for the match/mismatch penalty/point
-              match = sub_mat[query_nt*5 + ref_nt];
-          }//*/
-          int match = (query_nt == ref_nt) ? match_score : mismatch_score;
+            int match = (query_nt == ref_nt) ? match_score : mismatch_score;
 
-          //columnwise calculations
-          // find out max value
-          if (m_matrix_rd[j-1] > i_matrix_rd[j-1] && m_matrix_rd[j-1] > d_matrix_rd[j-1]) {
-              m_matrix_wr[j] = m_matrix_rd[j-1] + match;
-          } else if (i_matrix_rd[j-1] > d_matrix_rd[j-1]) {
-              m_matrix_wr[j] = i_matrix_rd[j-1] + match;
-          } else {
-              m_matrix_wr[j] = d_matrix_rd[j-1] + match;
-          }
-          if (m_matrix_wr[j] < 0) {
-              m_matrix_wr[j] = 0;
-          }
+            //columnwise calculations
+            // find out max value
+            if (m_matrix_rd[j-1] > i_matrix_rd[j-1] && m_matrix_rd[j-1] > d_matrix_rd[j-1]) {
+                    m_matrix_wr[j] = m_matrix_rd[j-1] + match;
+            } else if (i_matrix_rd[j-1] > d_matrix_rd[j-1]) {
+                    m_matrix_wr[j] = i_matrix_rd[j-1] + match;
+            } else {
+                    m_matrix_wr[j] = d_matrix_rd[j-1] + match;
+            }
+            if (m_matrix_wr[j] < 0) {
+                    m_matrix_wr[j] = 0;
+            }
 
-          int ins_open   = m_matrix_rd[j] + gap_open;
-          int ins_extend = i_matrix_rd[j] + gap_extend;
-          int del_open   = m_matrix_wr[j-1] + gap_open;
-          int del_extend = d_matrix_wr[j-1] + gap_extend;
+            int ins_open   = m_matrix_rd[j] + gap_open;
+            int ins_extend = i_matrix_rd[j] + gap_extend;
+            int del_open   = m_matrix_wr[j-1] + gap_open;
+            int del_extend = d_matrix_wr[j-1] + gap_extend;
 
-          i_matrix_wr[j] = (ins_open > ins_extend) ? ins_open : ins_extend;
+            i_matrix_wr[j] = (ins_open > ins_extend) ? ins_open : ins_extend;
 
-          d_matrix_wr[j] = (del_open > del_extend) ? del_open : del_extend;
+            d_matrix_wr[j] = (del_open > del_extend) ? del_open : del_extend;
 
-          int max1 = m_matrix_wr[j] > i_matrix_wr[j] ? m_matrix_wr[j] : i_matrix_wr[j];
-          int max2 = d_matrix_wr[j] > 0 ? d_matrix_wr[j] : 0;
-          h_matrix_wr[j] = max1 > max2 ? max1 : max2;//*/
+            int max1 = m_matrix_wr[j] > i_matrix_wr[j] ? m_matrix_wr[j] : i_matrix_wr[j];
+            int max2 = d_matrix_wr[j] > 0 ? d_matrix_wr[j] : 0;
+            h_matrix_wr[j] = max1 > max2 ? max1 : max2;
 
-          (dir_matrix)[i][j] = ((m_matrix_wr[j] >= i_matrix_wr[j]) ? \
-            ((m_matrix_wr[j] >= d_matrix_wr[j]) ? MATCH_OP : DELETE_OP) : \
-            ((i_matrix_wr[j] >= d_matrix_wr[j]) ? INSERT_OP : DELETE_OP));
+            (dir_matrix)[i][j] = ((m_matrix_wr[j] >= i_matrix_wr[j]) ? \
+                ((m_matrix_wr[j] >= d_matrix_wr[j]) ? MATCH_OP : DELETE_OP) : \
+                ((i_matrix_wr[j] >= d_matrix_wr[j]) ? INSERT_OP : DELETE_OP));
 
-          if ((m_matrix_wr[j] <= 0) && (i_matrix_wr[j] <= 0) && (d_matrix_wr[j] <= 0)) {
-              (dir_matrix)[i][j] = ZERO_OP;
-          }//*/
+            if ((m_matrix_wr[j] <= 0) && (i_matrix_wr[j] <= 0) && (d_matrix_wr[j] <= 0)) {
+                (dir_matrix)[i][j] = ZERO_OP;
+            }
 
-          // this code is slower, probably due to lower ILP
-          /*AlnOp tmp = ZERO_OP;
-          int tmp2 = 0;
-          if(m_matrix_wr[j] > tmp2){
-            tmp2 = m_matrix_wr[j];
-            tmp = MATCH_OP;
-          }
-          if(i_matrix_wr[j] > tmp2){
-            tmp2 = i_matrix_wr[j];
-            tmp = INSERT_OP;
-          }
-          if(d_matrix_wr[j] > tmp2){
-            tmp2 = d_matrix_wr[j];
-            tmp = DELETE_OP;
-          }
-          (dir_matrix)[i][j] = tmp;
-          h_matrix_wr[j] = tmp2;//*/
+            (dir_matrix)[i][j] += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
+            (dir_matrix)[i][j] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
 
-          (dir_matrix)[i][j] += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-          (dir_matrix)[i][j] += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-if(1){
-    if(i-1 > 240 && i-1 < 270 && j-1 > 110 && j-1 < 150){
-        //printf("XT%d i: %d, j: %d, score: %d, ref: %d, query: %d, dir: %d, m: %d, io: %d, ie: %d, do: %d, de: %d\n", \
-        0, i-1, j-1, h_matrix_wr[j], ref_nt, query_nt, dir_matrix[i][j], m_matrix_wr[j], ins_open, ins_extend, del_open, del_extend);
+            if (h_matrix_wr[j] >= max_score) {
+                max_score = h_matrix_wr[j];
+                max_i = i;
+                max_j = j;
+            }
+
+            if ((i == ref_pos) && (j == query_pos)) {
+                pos_score = h_matrix_wr[j];
+            }
+        } // end for every query base
+    } // end for every ref base
+
+    std::queue<int> BT_states;
+    int i_curr=ref_pos, j_curr=query_pos;
+    int i_steps = 0, j_steps = 0;
+
+    int open = 0;
+    if (first) {
+        i_curr = max_i;
+        j_curr = max_j;
+        BT_states.push(max_score);
+        BT_states.push(i_curr);
+        BT_states.push(j_curr);
     }
-}
-          if (h_matrix_wr[j] >= max_score) {
-              max_score = h_matrix_wr[j];
-              max_i = i;
-              max_j = j;
-          }
+    else {
+        BT_states.push(pos_score);
+    }
 
-          if ((i == ref_pos) && (j == query_pos)) {
-              pos_score = h_matrix_wr[j];
-          }
-
-      }
-  }
-
-  //printf("tmp: %d\n", tmp);
-  //printf("tile done, max score: %d, max_i: %d, max_j: %d, pos_score: %d\n", max_score, max_i, max_j, pos_score);
-
-
-  std::queue<int> BT_states;
-  int i_curr=ref_pos, j_curr=query_pos;
-  int i_steps = 0, j_steps = 0;
-
-  int open = 0;
-  if (first) {
-      i_curr = max_i;
-      j_curr = max_j;
-      BT_states.push(max_score);
-      BT_states.push(i_curr);
-      BT_states.push(j_curr);
-  }
-  else {
-      BT_states.push(pos_score);
-  }
-
-/*printf("tile done, first: %d, max_i: %d, max_j: %d, i_curr: %d, j_curr: %d, max_score: %d, pos_score: %d\n", \
-  first, max_i, max_j, i_curr, j_curr, max_score, pos_score);//*/
-
-  int state = dir_matrix[i_curr][j_curr] % 4;
-  int i = 4;
+    int state = dir_matrix[i_curr][j_curr] % 4;
+    int i = 4;
 
     while (state != Z) {
         if ((i_steps >= early_terminate) || (j_steps >= early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
@@ -270,10 +207,8 @@ if(1){
         }
         BT_states.push(state);
         i++;
-//printf("state: %d, i_curr: %d, j_curr: %d, steps: %d %d, i: %d\n", state, i_curr-1, j_curr-1, i_steps, j_steps, i);
         if (state == M) {
             char t = dir_matrix[i_curr-1][j_curr-1];
-//printf("state M: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
             state = (dir_matrix[i_curr-1][j_curr-1] % 4);
             i_curr--;
             j_curr--;
@@ -282,24 +217,19 @@ if(1){
         }
         else if (state == I) {
             char t = dir_matrix[i_curr][j_curr];
-//printf("state I: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
             state = (dir_matrix[i_curr][j_curr] & (2 << INSERT_OP)) ? M : I;
             i_curr--;
             i_steps++;
         }
         else if (state == D) {
             char t = dir_matrix[i_curr][j_curr];
-//printf("state D: %d, i_curr: %d, j_curr: %d\n", t, i_curr-1, j_curr-1);
             state = (dir_matrix[i_curr][j_curr] & (2 << DELETE_OP)) ? M : D;
             j_curr--;
             j_steps++;
         }
-    };
+    }; // end while
 
-  //printf("tb done, i_curr: %d, j_curr: %d, i_steps: %d, j_steps: %d\n\n", \
-    i_curr, j_curr, i_steps, j_steps);
-
-  return BT_states;
+    return BT_states;
 }
 
 

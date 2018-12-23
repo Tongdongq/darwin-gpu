@@ -35,8 +35,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     #error "These files should be compiled using the z_compile.sh script"
 #endif
 
-#define PRINT_SEED_POS_CONSTRUCT TRUE
-
 // true iff both fasta files have the same name
 bool same_file = false;
 

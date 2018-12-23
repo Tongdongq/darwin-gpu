@@ -104,26 +104,19 @@ __global__ void gasal_pack_kernel( \
 
 } // end gasal_pack_kernel()
 
-
-#define FIND_MAX(curr, gidx) \
-    maxXY_y = (maxHH < curr) ? gidx : maxXY_y;\
-    maxHH = (maxHH < curr) ? curr : maxHH;
-
-
-    __global__ void gasal_local_kernel( \
-    uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
-    const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
-    int32_t *query_offsets, int32_t *target_offsets, \
-    const int *query_poss, const int *ref_poss, \
-    int *out, \
-    const char *firsts, char *dir_matrix)
+__global__ void gasal_local_kernel( \
+uint32_t *packed_query_batch, uint32_t *packed_target_batch, \
+const int32_t *query_batch_lens, const int32_t *target_batch_lens, \
+int32_t *query_offsets, int32_t *target_offsets, \
+const int *query_poss, const int *ref_poss, \
+int *out, \
+const char *firsts, char *dir_matrix)
     {
         int32_t i, j, k, m, l;
         int32_t e, z;
         int32_t maxHH = 0;//initialize the maximum score to zero
-        int32_t prev_maxHH = 0;
         int32_t subScore;
-        int32_t ridx, gidx;
+        int32_t ridx;
         short3 HD;
         short3 initHD = make_short3(0, 0, 0);
         int32_t maxXY_x = 0;
@@ -183,7 +176,6 @@ __global__ void gasal_pack_kernel( \
                     d[m] = 0;
             }
             register uint32_t gpac = packed_target_batch[i*__Y];//load 8 packed bases from target_batch sequence
-            gidx = i << 3;
             ridx = 0;
             for (j = 0; j < query_batch_regs; j++) { //query_batch sequence in columns
                 register uint32_t rpac = packed_query_batch[j*__Y];//load 8 bases from query_batch sequence
@@ -197,7 +189,6 @@ __global__ void gasal_pack_kernel( \
                         e = HD.y;
                         z = HD.z;
                         //-------------------------------------------
-                        int32_t prev_hm_diff = h[0] + _gap_open;
                         int ii = i*8;
                         int jj = j*8+7-k/4;
 #pragma unroll 8
@@ -235,6 +226,7 @@ __global__ void gasal_pack_kernel( \
                             h[m] = tmp2;
 
                             // maximum score tie resolvement: keep element with highest i, if they have the same i, keep element with highest j
+                            // interestingly, using a simpler max score tie resolvement system does not seem to impact the runtime
                             if(h[m] == maxHH){  
                                 if(ii > maxXY_y){
                                     maxXY_y = ii;

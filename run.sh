@@ -3,13 +3,12 @@
 # executes gact
 
 #batch size
-T=${1:-1}
-BLOCKS=${2:-1}
-TPB=${3:-3}
+T=${1:-4}
+BLOCKS=${2:-32}
+TPB=${3:-64}
 
-#time ./reference_guided sacCer3.fa reads.fa $T $BLOCKS $TPB
-#time ./reference_guided reference.fasta reads.fasta $T $BLOCKS $TPB
-time ./reference_guided reference.fasta reference.fasta $T $BLOCKS $TPB
+rm darwin.*.out
+time ./darwin reference.fasta reference.fasta $T $BLOCKS $TPB
 
 last="$(head -n20 Makefile | grep "NCFLAGS" | grep -v "#")"
 if [[ $last == *"-O0"* ]]; then

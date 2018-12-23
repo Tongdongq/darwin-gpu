@@ -2,7 +2,7 @@
 
 # compile with different flags for different optimizations
 
-rm reference_guided
+rm darwin
 
 set -e
 

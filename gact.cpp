@@ -20,6 +20,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "align.h"
 #include "gact.h"
 
+// only report overlaps with a score higher than SCORE_THRESHOLD
+#define SCORE_THRESHOLD 0
+
 #ifdef TIME
     #include <chrono>
 #endif
@@ -207,12 +210,12 @@ void GACT (char *ref_str, char *query_str, \
     }
 
     // either print whole name, or only id (integer)
-    if(!(same_file && ref_id == query_id) && total_score > 0){
+    if(!(same_file && ref_id == query_id) && total_score > SCORE_THRESHOLD){
         fout
-        //<< "ref_id: " << reference_descrips[ref_id][0]
-        //<< ", query_id: " << reads_descrips[query_id][0]
-        << "ref_id: " << ref_id
-        << ", query_id: " << query_id
+        << "ref_id: " << reference_descrips[ref_id][0]
+        << ", query_id: " << reads_descrips[query_id][0]
+        //<< "ref_id: " << ref_id
+        //<< ", query_id: " << query_id
         << ", ab: " << abpos
         << ", ae: " << ref_pos
         << ", bb: " << bbpos
@@ -224,20 +227,11 @@ void GACT (char *ref_str, char *query_str, \
 
 } // end GACT()
 
-#ifdef BATCH
-#ifdef GPU
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
-    bool complement, int offset, GPU_storage *s, \
-    int match_score, int mismatch_score, \
-    int gap_open, int gap_extend, \
-    std::ofstream &fout)
-#else
-void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
-    bool complement, int offset, \
-    int match_score, int mismatch_score, \
-    int gap_open, int gap_extend, \
-    std::ofstream &fout)
-#endif
+bool complement, int offset, GPU_storage *s, \
+int match_score, int mismatch_score, \
+int gap_open, int gap_extend, \
+std::ofstream &fout)
 {
     int early_terminate = tile_size - tile_overlap;
 
@@ -251,23 +245,22 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
         reads_seqs_p = &reads_seqs;
     }
 
-    printf("GACT_Batch, num_calls: %d, calls: %p, complement: %d\n", num_calls, &calls, complement);
+    printf("GACT_Batch, num_calls: %d, complement: %d\n", num_calls, complement);
 
     //output of the function
     std::vector<std::string> aligned_ref_strs(num_calls);
     std::vector<std::string> aligned_query_strs(num_calls);
 
+    // reserve space for aligned strings
     for(int i = 0; i < num_calls; ++i){
         aligned_ref_strs[i].reserve(200);
         aligned_query_strs[i].reserve(200);
     }
 
-    std::vector<int> first_tile_scores(num_calls);
-
     int next_callidx = BATCH_SIZE;
     int calls_done = 0;
 
-    std::vector<int> assignments(BATCH_SIZE);
+    std::vector<int> assignments(BATCH_SIZE);           // BATCH thread i will compute GACTcall assignments[i]
     std::vector<int> ref_tile_lengths(BATCH_SIZE);
     std::vector<int> query_tile_lengths(BATCH_SIZE);
     if(num_calls < BATCH_SIZE){
@@ -300,7 +293,6 @@ void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
     t1 = std::chrono::high_resolution_clock::now();
 #endif
 
-int batch_no = 0;
     while(calls_done < num_calls){
         for(int t = 0; t < BATCH_SIZE; ++t){
             char next_call = 0;
@@ -353,7 +345,7 @@ int batch_no = 0;
 #ifdef NOSCORE
                     if(!(same_file && c->ref_id == c->query_id))
 #else
-                    if(!(same_file && c->ref_id == c->query_id) && total_score > 0)
+                    if(!(same_file && c->ref_id == c->query_id) && total_score > SCORE_THRESHOLD)
 #endif
                     {
                         // either print whole name, or only id (integer)
@@ -443,39 +435,25 @@ int batch_no = 0;
 
             int i = 0;
             int j = 0;
-#ifndef GPU
-            std::queue<int> BT_states = BT_statess[t];
-#else // GPU
             int idx = 5;
 #ifdef NOSCORE
             int *res = out + 5*t;
 #else
             int *res = out + 2*tile_size*t;
-#endif // NOSCORE
-#endif // GPU
+#endif
             bool first_tile = c->first;
             int ref_pos = c->ref_pos;
             int query_pos = c->query_pos;
             int ref_tile_length = ref_lens[t];
             int query_tile_length = query_lens[t];
-#ifdef GPU
             int tile_score = res[0];
-#else
-            int tile_score = BT_states.front();
-            BT_states.pop();
-#endif
             int first_tile_score;
 
             // if reverse
             if(c->reverse == 1){
                 if (first_tile) {
-#ifdef GPU
                     int t1 = res[3];
                     int t2 = res[4];
-#else
-                    int t1 = BT_states.front();BT_states.pop();
-                    int t2 = BT_states.front();BT_states.pop();
-#endif
                     ref_pos = ref_pos - ref_tile_length + t1;
                     query_pos = query_pos - query_tile_length + t2;
                     c->ref_bpos = ref_pos;
@@ -495,18 +473,10 @@ int batch_no = 0;
                     first_tile = false;
                 }
 #else
-#ifdef GPU
                 int state;
                 while ((state = res[idx++]) != -1)
-#else
-                while (!BT_states.empty())
-#endif
                 {
                     first_tile = false;
-#ifndef GPU
-                    int state = BT_states.front();
-                    BT_states.pop();
-#endif
                     if (state == M) {
                         aligned_ref_strs[callidx].insert(0, 1, reference_seqs[c->ref_id][ref_pos - j - 1]);
                         aligned_query_strs[callidx].insert(0, 1, reads_seqs_p->at(c->query_id)[query_pos - i - 1]);
@@ -524,18 +494,13 @@ int batch_no = 0;
                         i += 1;
                     }
                 }
-#endif
+#endif // NOSCORE
                 ref_pos -= (j);
                 query_pos -= (i);
             }else{      // else forward
                 if (first_tile) {
-#ifdef GPU
                     int t1 = res[3];
                     int t2 = res[4];
-#else
-                    int t1 = BT_states.front();BT_states.pop();
-                    int t2 = BT_states.front();BT_states.pop();
-#endif
                     ref_pos = ref_pos + ref_tile_length - t1;
                     query_pos = query_pos + query_tile_length - t2;
                     c->first_tile_score = tile_score;
@@ -553,18 +518,10 @@ int batch_no = 0;
                     first_tile = false;
                 }
 #else
-#ifdef GPU
                 int state;
                 while ((state = res[idx++]) != -1)
-#else
-                while (!BT_states.empty())
-#endif
                 {
                     first_tile = false;
-#ifndef GPU
-                    int state = BT_states.front();
-                    BT_states.pop();
-#endif
                     if (state == M) {
                         aligned_ref_strs[callidx] += reference_seqs[c->ref_id][ref_pos + j];
                         aligned_query_strs[callidx] += (reads_seqs_p->at(c->query_id)[query_pos + i]);
@@ -582,7 +539,7 @@ int batch_no = 0;
                         i += 1;
                     }
                 }
-#endif
+#endif // NOSCORE
                 ref_pos += (j);
                 query_pos += (i);
             }   // end traceback
@@ -605,6 +562,3 @@ int batch_no = 0;
 #endif
 
 } // end GACT_Batch()
-#endif  // BATCH
-
-

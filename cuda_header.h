@@ -26,7 +26,7 @@ struct CUDA_Stream_Holder {
     #endif
 #endif
 
-#ifndef NOCUDA
+#ifdef GPU
 __constant__ int _tile_size;
 __constant__ int _tile_overlap;
 __constant__ int _gap_open;
@@ -37,17 +37,8 @@ __constant__ int _early_terminate;
 
 #define NTHREADS (gridDim.x*blockDim.x)
 
-#ifdef COALESCE_MATRICES
-    #define __X NTHREADS
-#else
-    #define __X 1
-#endif
-
-#if defined(COALESCE_BASES) || defined (COALESCE_PACKED_BASES)
-    #define __Y NTHREADS
-#else
-    #define __Y 1
-#endif
+#define __X NTHREADS
+#define __Y NTHREADS
 
 // for GASAL: DELETE_OP means a query_base is 'aligned' to a gap
 
@@ -133,13 +124,8 @@ const char *firsts, char *dir_matrix)
 #else
         out += (_tile_size * 2 * tid);
 #endif
-#ifndef COALESCE_PACKED_BASES
-        packed_query_batch += query_offsets[tid] >> 3;
-        packed_target_batch += target_offsets[tid] >> 3;
-#else
         packed_query_batch += tid;
         packed_target_batch += tid;
-#endif
         int pos_score;        // score of last calculated corner
         const char first = firsts[tid];
         uint32_t query_batch_regs = (query_len >> 3) + (query_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
@@ -154,20 +140,14 @@ const char *firsts, char *dir_matrix)
         for (i = 0; i < MAX_SEQ_LEN; i++) {
             global[i] = initHD;
         }
-#ifdef COALESCE_MATRICES
         dir_matrix += tid;
-#else
-        dir_matrix += tid*(_tile_size+2)*(_tile_size+2);
-#endif
         for (int i = 0; i < ref_len + 2; i++) {
             dir_matrix[(i*row_len)*__X] = ZERO_OP;
         }
         for (int j = 0; j < query_len + 2; j++) {
             dir_matrix[j*__X] = ZERO_OP;
-        }//*/
-#ifdef COALESCE_MATRICES
+        }
         dir_matrix += (_tile_size+3)*__X;
-#endif
         for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
             for (m = 0; m < 9; m++) {
                     h[m] = 0;
@@ -331,202 +311,6 @@ const char *firsts, char *dir_matrix)
 } // end gasal_local_kernel()
 
 
-
-__global__ void Align_Kernel(const char *ref_seqs_d, const char *query_seqs_d, \
-    const int *ref_lens_d, const int *query_lens_d, \
-    const int *ref_poss_d, const int *query_poss_d, \
-    const char *reverses_d, const char *firsts_d, int *outs_d, int *matricess_d){
-
-    const int tid = blockIdx.x * blockDim.x + threadIdx.x;
-#ifdef COALESCE_BASES
-    const char *ref_seq = ref_seqs_d + tid;
-    const char *query_seq = query_seqs_d + tid;
-#else
-    const char *ref_seq = ref_seqs_d + tid * _tile_size;
-    const char *query_seq = query_seqs_d + tid * _tile_size;
-#endif
-    const int ref_len = ref_lens_d[tid];
-    const int query_len = query_lens_d[tid];
-    const int ref_pos = ref_poss_d[tid];
-    const int query_pos = query_poss_d[tid];
-    const char first = firsts_d[tid];
-    const int row_len = _tile_size + 1;
-    int *out = outs_d + tid * 2 * _tile_size;
-
-    if(ref_len == -1){
-        out[0] = 0;
-        return;
-    }
-
-#ifdef COALESCE_MATRICES
-    int *h_matrix_wr = matricess_d + tid;
-    int *m_matrix_wr = h_matrix_wr + (_tile_size + 1) * NTHREADS;
-    int *i_matrix_wr = m_matrix_wr + (_tile_size + 1) * NTHREADS;
-    int *d_matrix_wr = i_matrix_wr + (_tile_size + 1) * NTHREADS;
-    int *h_matrix_rd = d_matrix_wr + (_tile_size + 1) * NTHREADS;
-    int *m_matrix_rd = h_matrix_rd + (_tile_size + 1) * NTHREADS;
-    int *i_matrix_rd = m_matrix_rd + (_tile_size + 1) * NTHREADS;
-    int *d_matrix_rd = i_matrix_rd + (_tile_size + 1) * NTHREADS;
-    char *dir_matrix = (char*)(matricess_d + (_tile_size + 1) * 8 * NTHREADS) + tid;
-#else
-    int *h_matrix_wr = matricess_d + (_tile_size + 1) * (_tile_size + 9) * tid;
-    int *m_matrix_wr = h_matrix_wr + (_tile_size + 1);
-    int *i_matrix_wr = m_matrix_wr + (_tile_size + 1);
-    int *d_matrix_wr = i_matrix_wr + (_tile_size + 1);
-    int *h_matrix_rd = d_matrix_wr + (_tile_size + 1);
-    int *m_matrix_rd = h_matrix_rd + (_tile_size + 1);
-    int *i_matrix_rd = m_matrix_rd + (_tile_size + 1);
-    int *d_matrix_rd = i_matrix_rd + (_tile_size + 1);
-    int *dir_matrix = d_matrix_rd + (_tile_size + 1);
-#endif
-    for (int i = 0; i < query_len + 1; i++) {
-        h_matrix_rd[i*__X] = 0;
-        m_matrix_rd[i*__X] = 0;
-        i_matrix_rd[i*__X] = 0;
-        d_matrix_rd[i*__X] = 0;
-       
-        h_matrix_wr[i*__X] = 0;
-        m_matrix_wr[i*__X] = 0;
-        i_matrix_wr[i*__X] = 0;
-        d_matrix_wr[i*__X] = 0;
-    }
-
-    //initialize the operands int he direction matrix for the first row and first
-    //column
-    for (int i = 0; i < ref_len + 1; i++) {
-        dir_matrix[(i*row_len)*__X] = ZERO_OP;
-    }
-
-    for (int j = 0; j < query_len + 1; j++) {
-        dir_matrix[j*__X] = ZERO_OP;
-    }
-
-    int max_score = 0;
-    int max_i = 0;
-    int max_j = 0;
-
-    for (int i = 1; i < ref_len + 1; i++) {
-        for (int k = 1; k < _tile_size + 1; k++) {
-            m_matrix_rd[k*__X] = m_matrix_wr[k*__X];
-            h_matrix_rd[k*__X] = h_matrix_wr[k*__X];
-            i_matrix_rd[k*__X] = i_matrix_wr[k*__X];
-            d_matrix_rd[k*__X] = d_matrix_wr[k*__X];
-        }
-		
-		char ref_nt = ref_seq[(i-1)*__Y];
-
-        //j - row number; i - column number
-        for (int j = 1; j < query_len + 1; j++) {
-            // reverse indicates the direction of the alignment
-            // 1: towards position = 0, 0: towards position = length
-            char query_nt = query_seq[(j-1)*__Y];
-            int match = (query_nt == ref_nt) ? _match : _mismatch;
-
-            //columnwise calculations
-            // find out max value
-            int tmp2 = m_matrix_rd[(j-1)*__X];
-            if(i_matrix_rd[(j-1)*__X] > tmp2){
-                tmp2 = i_matrix_rd[(j-1)*__X];
-            }
-            if(d_matrix_rd[(j-1)*__X] > tmp2){
-                tmp2 = d_matrix_rd[(j-1)*__X];
-            }
-            tmp2 += match;
-            if(tmp2 < 0){
-                tmp2 = 0;
-            }
-            m_matrix_wr[j*__X] = tmp2;
-
-            int ins_open   = m_matrix_rd[j*__X] + _gap_open;
-            int ins_extend = i_matrix_rd[j*__X] + _gap_extend;
-            int del_open   = m_matrix_wr[(j-1)*__X] + _gap_open;
-            int del_extend = d_matrix_wr[(j-1)*__X] + _gap_extend;
-
-            i_matrix_wr[j*__X] = (ins_open > ins_extend) ? ins_open : ins_extend;
-
-            d_matrix_wr[j*__X] = (del_open > del_extend) ? del_open : del_extend;
-
-            // this code is slower on CPU, probably due to lower ILP
-            // but it is 13-14% faster on GPU, probably due to less branching
-            AlnOp tmp = ZERO_OP;
-            tmp2 = 0;
-            if(m_matrix_wr[j*__X] > tmp2){
-              tmp2 = m_matrix_wr[j*__X];
-              tmp = MATCH_OP;
-            }
-            if(i_matrix_wr[j*__X] > tmp2){
-              tmp2 = i_matrix_wr[j*__X];
-              tmp = INSERT_OP;
-            }
-            if(d_matrix_wr[j*__X] > tmp2){
-              tmp2 = d_matrix_wr[j*__X];
-              tmp = DELETE_OP;
-            }
-
-            h_matrix_wr[j*__X] = tmp2;
-
-
-            tmp += (ins_open >= ins_extend) ? (2 << INSERT_OP) : 0;
-            tmp += (del_open >= del_extend) ? (2 << DELETE_OP) : 0;
-
-            (dir_matrix)[(i*row_len+j)*__X] = tmp;
-
-            if (tmp2 >= max_score) {
-                max_score = tmp2;
-                max_i = i;
-                max_j = j;
-            }
-        } // end column
-    } // end row
-
-    int *BT_states = out;
-    int i = 1;
-    int i_curr = ref_pos, j_curr = query_pos;
-    int i_steps = 0, j_steps = 0;
-
-    if(first){
-        i_curr = max_i;
-        j_curr = max_j;
-        BT_states[i++] = max_score;
-        BT_states[i++] = i_curr;
-        BT_states[i++] = j_curr;
-    }else{
-        BT_states[i++] = h_matrix_wr[query_len*__X];
-    }
-
-    char state = dir_matrix[(i_curr*row_len+j_curr)*__X] % 4;
-
-    while (state != Z) {
-        if ((i_steps >= _early_terminate) || (j_steps >= _early_terminate)) { // || (i_steps - j_steps > 30) || (i_steps - j_steps < -30)) {
-            break;
-        }
-        BT_states[i++] = state;
-        if (state == M) {
-            state = (dir_matrix[((i_curr-1)*row_len+j_curr-1)*__X] % 4);
-            i_curr--;
-            j_curr--;
-            i_steps++;
-            j_steps++;
-        }
-        else if (state == I) {
-            state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << INSERT_OP)) ? M : I;
-            i_curr--;
-            i_steps++;
-        }
-        else if (state == D) {
-            state = (dir_matrix[(i_curr*row_len+j_curr)*__X] & (2 << DELETE_OP)) ? M : D;
-            j_curr--;
-            j_steps++;
-        }
-    };
-
-    BT_states[0] = i - 1;
-
-    return;
-}
-
-
-
 // error checking code taken from: https://codeyarns.com/2011/03/02/how-to-do-error-checking-in-cuda/
 #define cudaSafeCall( err ) __cudaSafeCall( err, __FILE__, __LINE__ )
 #define cudaCheckError()    __cudaCheckError( __FILE__, __LINE__ )
@@ -550,6 +334,6 @@ inline void __cudaCheckError( const char *file, const int line )
       }
   }
 // end of error checking code
-#endif // NOCUDA
+#endif // GPU
 
-#endif
+#endif // CUDA_HEADER

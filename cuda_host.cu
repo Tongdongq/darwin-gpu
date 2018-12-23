@@ -52,7 +52,7 @@ GPU_storage *s, int num_blocks, int threads_per_block){
 
     int ref_curr = 0, query_curr = 0;
 
-    // constant malloc might be bad
+    // malloc every time might be bad
     ref_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
     query_seqs_b = (char*)malloc(BATCH_SIZE * (tile_size+1));
     ref_lens_b = (int*)malloc(BATCH_SIZE * sizeof(int));
@@ -61,60 +61,16 @@ GPU_storage *s, int num_blocks, int threads_per_block){
     query_poss_b = (int*)malloc(BATCH_SIZE * sizeof(int));
     reverses_b = (char*)malloc(BATCH_SIZE);
     firsts_b = (char*)malloc(BATCH_SIZE);
-#ifdef GASAL
     int32_t *query_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
     int32_t *ref_offsets_b = (int32_t*)malloc(BATCH_SIZE * sizeof(int));
     int *outs_b, *outs_d = (s->outs_d);
     outs_b = (int*)malloc(BATCH_SIZE * sizeof(int) * 2 * tile_size);
-#else
-    int *outs_b, *outs_d = s->outs_d;
-    outs_b = (int*)malloc(BATCH_SIZE * sizeof(int) * 2 * tile_size);
-#endif
 
     for(int t = 0; t < BATCH_SIZE; ++t){
         if(ref_lens[t] == -1){ // if this thread is not stopped
-#ifndef GASAL
-            ref_curr += tile_size;
-            query_curr += tile_size;
-#endif
             ref_lens_b[t] = ref_lens[t];
             continue;
         }
-#ifndef GASAL
-#ifdef COALESCE_BASES
-        if(reverses[t] == 1){
-            for(int j = 0; j < ref_lens[t]; ++j){
-                ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[j];
-            }
-            for(int j = 0; j < query_lens[t]; ++j){
-                query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[j];
-            }
-        }else{
-            for(int j = 0; j < ref_lens[t]; ++j){
-                ref_seqs_b[t+j*BATCH_SIZE] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
-            }
-            for(int j = 0; j < query_lens[t]; ++j){
-                query_seqs_b[t+j*BATCH_SIZE] = query_seqs[t].c_str()[query_lens[t]-j-1];
-            }
-        }
-        ref_curr += tile_size;
-        query_curr += tile_size;
-#else
-        if(reverses[t] == 1){
-                memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
-                memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
-        }else{
-                for(int j = 0; j < ref_lens[t]; ++j){
-                        ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
-                }
-                for(int j = 0; j < query_lens[t]; ++j){
-                        query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
-                }
-        }
-        ref_curr += tile_size;
-        query_curr += tile_size;
-#endif // COALESCE_BASES
-#endif // GASAL
         ref_lens_b[t] = ref_lens[t];
         query_lens_b[t] = query_lens[t];
         ref_poss_b[t] = ref_poss[t];
@@ -126,35 +82,13 @@ GPU_storage *s, int num_blocks, int threads_per_block){
     int NUM_BLOCKS = num_blocks;
     int THREADSPERBLOCK = threads_per_block;
 
-
-#ifdef STREAM
-#ifdef GASAL
     for(int t = 0; t < BATCH_SIZE; ++t){
         if(ref_lens[t] == -1){continue;}
         ref_offsets_b[t] = ref_curr;
         query_offsets_b[t] = query_curr;
-#ifndef COALESCE_PACKED_BASES
-        if(reverses[t] == 1){
-            memcpy(ref_seqs_b + ref_curr, ref_seqs[t].c_str(), ref_lens[t]);
-            memcpy(query_seqs_b + query_curr, query_seqs[t].c_str(), query_lens[t]);
-        }else{
-            for(int j = 0; j < ref_lens[t]; ++j){
-                ref_seqs_b[ref_curr+j] = ref_seqs[t].c_str()[ref_lens[t]-j-1];
-            }
-            for(int j = 0; j < query_lens[t]; ++j){
-                query_seqs_b[query_curr+j] = query_seqs[t].c_str()[query_lens[t]-j-1];
-            }
-        }
-        ref_curr += ref_lens[t];
-        query_curr += query_lens[t];
-        while(ref_curr % 8 != 0){
-            ref_seqs_b[ref_curr++] = 4;
-        }
-        while(query_curr % 8 != 0){
-            query_seqs_b[query_curr++] = 5;
-        }
-#else
+
         int i, j, remainder;
+
         if(reverses[t] == 1){
             for(i = 0; i < ref_lens[t] / 8; ++i){
                 memcpy(ref_seqs_b + (i * BATCH_SIZE + t) * 8, ref_seqs[t].c_str() + 8*i, 8);
@@ -208,7 +142,6 @@ GPU_storage *s, int num_blocks, int threads_per_block){
         }
         ref_curr = BATCH_SIZE * tile_size;
         query_curr = BATCH_SIZE * tile_size;
-#endif
     }
 
     uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
@@ -252,43 +185,6 @@ GPU_storage *s, int num_blocks, int threads_per_block){
 #else
     cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
 #endif // NOSCORE
-#else // GASAL
-    cudaStream_t stream = s->stream->stream;
-    cudaSafeCall(cudaMemcpyAsync((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)query_lens_d, query_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)ref_poss_d, ref_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)query_poss_d, query_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)reverses_d, reverses_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
-    cudaSafeCall(cudaMemcpyAsync((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice, stream));
-
-    Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK, 0, stream>>>(ref_seqs_d, query_seqs_d, \
-        ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
-        reverses_d, firsts_d, outs_d, s->matrices_d);
-
-    cudaSafeCall(cudaStreamSynchronize(stream));
-
-    cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
-#endif // GASAL
-#else // STREAM
-    cudaSafeCall(cudaMemcpy((void*)ref_seqs_d, ref_seqs_b, ref_curr, cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)query_seqs_d, query_seqs_b, query_curr, cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)ref_lens_d, ref_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)query_lens_d, query_lens_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)ref_poss_d, ref_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)query_poss_d, query_poss_b, BATCH_SIZE*sizeof(int), cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)reverses_d, reverses_b, BATCH_SIZE, cudaMemcpyHostToDevice));
-    cudaSafeCall(cudaMemcpy((void*)firsts_d, firsts_b, BATCH_SIZE, cudaMemcpyHostToDevice));
-
-    Align_Kernel<<<NUM_BLOCKS, THREADSPERBLOCK>>>(ref_seqs_d, query_seqs_d, \
-        ref_lens_d, query_lens_d, ref_poss_d, query_poss_d, \
-        reverses_d, firsts_d, outs_d, s->matrices_d);
-
-    cudaSafeCall(cudaDeviceSynchronize());
-
-    cudaSafeCall(cudaMemcpy(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
-#endif
 
     return outs_b;
 }
@@ -306,21 +202,12 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
     cudaSafeCall(cudaMemcpyToSymbol(_mismatch, &(mismatch), sizeof(int), 0, cudaMemcpyHostToDevice));
     cudaSafeCall(cudaMemcpyToSymbol(_early_terminate, &(early_terminate), sizeof(int), 0, cudaMemcpyHostToDevice));
 
-#ifdef GASAL
     int size_matrices = (tile_size+2)*(tile_size+2);
 #ifdef NOSCORE
     int size_outs = 5;
 #else // NOSCORE
     int size_outs = 2*tile_size;
 #endif // NOSCORE
-#else // GASAL
-    int size_outs = 2*tile_size;
-#ifndef COMPRESS_DIR
-    int size_matrices = sizeof(int)*(tile_size+1)*(tile_size+9);
-#else
-    int size_matrices = sizeof(int)*(tile_size+1)*8 + ((tile_size+1)*(tile_size+1)+1)/2;
-#endif // COMPRESS_DIR
-#endif // GASAL
 
     for(int i = 0; i < num_threads; ++i){
         s->push_back(GPU_storage());
@@ -333,16 +220,12 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].reverses_d), BATCH_SIZE));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].firsts_d), BATCH_SIZE));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].matrices_d), BATCH_SIZE*size_matrices));
-#ifdef STREAM
         (*s)[i].stream = (CUDA_Stream_Holder*)malloc(sizeof(CUDA_Stream_Holder*));
         cudaSafeCall(cudaStreamCreate(&((*s)[i].stream->stream)));
-#endif
-#ifdef GASAL
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_ref_seqs_d), BATCH_SIZE*tile_size));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].packed_query_seqs_d), BATCH_SIZE*tile_size));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
-#endif
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*size_outs));
         size_t free, total;
         cudaMemGetInfo(&free,&total);
@@ -366,16 +249,12 @@ void GPU_close(std::vector<GPU_storage> *s, int num_threads){
         cudaSafeCall(cudaFree((void*)((*s)[i].firsts_d)));
         cudaSafeCall(cudaFree((void*)((*s)[i].outs_d)));
         cudaSafeCall(cudaFree((void*)((*s)[i].matrices_d)));
-#ifdef STREAM
         cudaSafeCall(cudaStreamDestroy((*s)[i].stream->stream));
         free((*s)[i].stream);
-#endif
-#ifdef GASAL
         cudaSafeCall(cudaFree((void*)((*s)[i].packed_ref_seqs_d)));
         cudaSafeCall(cudaFree((void*)((*s)[i].packed_query_seqs_d)));
         cudaSafeCall(cudaFree((void*)((*s)[i].ref_offsets_d)));
         cudaSafeCall(cudaFree((void*)((*s)[i].query_offsets_d)));
-#endif
     }
 }
 

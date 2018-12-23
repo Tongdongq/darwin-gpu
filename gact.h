@@ -15,12 +15,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #ifndef GACT_H
 #define GACT_H
 
+// actually declared in darwin.cpp, but gact.cpp also needs them
 #ifdef GPU
-    #define BATCH 1
-#endif
-
-// actually declared in reference_guided.cpp, but gact.cpp also needs them
-#ifdef BATCH
     extern int NUM_BLOCKS;
     extern int THREADS_PER_BLOCK;
     extern int BATCH_SIZE;
@@ -47,66 +43,52 @@ typedef struct {
 struct CUDA_Stream_Holder;
 
 typedef struct {
-#ifdef GASAL
-  uint32_t *packed_ref_seqs_d;
-  uint32_t *packed_query_seqs_d;
-  int32_t *ref_offsets_d;
-  int32_t *query_offsets_d;
-#endif
-  const char *ref_seqs_d;
-  const char *query_seqs_d;
-  const int *ref_lens_d;
-  const int *query_lens_d;
-  const int *ref_poss_d;
-  const int *query_poss_d;
-  const char *reverses_d;
-  const char *firsts_d;
-  int *outs_d;
-  int *matrices_d;
-  CUDA_Stream_Holder *stream;
+    uint32_t *packed_ref_seqs_d;
+    uint32_t *packed_query_seqs_d;
+    int32_t *ref_offsets_d;
+    int32_t *query_offsets_d;
+    const char *ref_seqs_d;
+    const char *query_seqs_d;
+    const int *ref_lens_d;
+    const int *query_lens_d;
+    const int *ref_poss_d;
+    const int *query_poss_d;
+    const char *reverses_d;
+    const char *firsts_d;
+    int *outs_d;
+    int *matrices_d;
+    CUDA_Stream_Holder *stream;
 } GPU_storage;
-
-// each GPU thread in the batch has its own GACT_call assignment
-typedef struct {
-    int callidx;
-} GPU_assign;
 
 // implemented in gact.cpp
 void GACT (char *ref_str, char *query_str, \
-    int ref_length, int query_length, \
-    int tile_size, int tile_overlap, \
-    int ref_pos, int query_pos, int first_tile_score_threshold, \
-    int ref_id, int query_id, bool complement, \
-    int match_score, int mismatch_score, int gap_open, int gap_extend, \
-    std::ofstream &fout);
+        int ref_length, int query_length, \
+        int tile_size, int tile_overlap, \
+        int ref_pos, int query_pos, int first_tile_score_threshold, \
+        int ref_id, int query_id, bool complement, \
+        int match_score, int mismatch_score, int gap_open, int gap_extend, \
+        std::ofstream &fout);
 
 // implemented in gact.cpp
-#ifdef GPU
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
-  bool complement, int offset, GPU_storage *s, int match_score, \
-  int mismatch_score, int gap_open, int gap_extend, \
-  std::ofstream &fout);
-#else
-void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
-  bool complement, int offset, \
-  int match_score, int mismatch_score, int gap_open, int gap_extend, \
-  std::ofstream &fout);
-#endif
+    bool complement, int offset, GPU_storage *s, int match_score, \
+    int mismatch_score, int gap_open, int gap_extend, \
+    std::ofstream &fout);
 
 // implemented in cuda_host.cu
 void GPU_init(int tile_size, int tile_overlap, \
-  int gap_open, int gap_extend, int match, int mismatch, \
-  int early_terminate, std::vector<GPU_storage> *s, int num_threads);
+    int gap_open, int gap_extend, int match, int mismatch, \
+    int early_terminate, std::vector<GPU_storage> *s, int num_threads);
 
 void GPU_close(std::vector<GPU_storage> *s, int num_threads);
 
 int* Align_Batch_GPU(std::vector<std::string> ref_seqs, \
-  std::vector<std::string> query_seqs, \
-  std::vector<int> ref_lens, std::vector<int> query_lens, \
-  int *sub_mat, int gap_open, int gap_extend, \
-  std::vector<int> ref_poss, std::vector<int> query_poss, \
-  std::vector<char> reverses, std::vector<char> firsts, \
-  int early_terminate, int tile_size, GPU_storage *s, \
-  int num_blocks, int threads_per_block);
+    std::vector<std::string> query_seqs, \
+    std::vector<int> ref_lens, std::vector<int> query_lens, \
+    int *sub_mat, int gap_open, int gap_extend, \
+    std::vector<int> ref_poss, std::vector<int> query_poss, \
+    std::vector<char> reverses, std::vector<char> firsts, \
+    int early_terminate, int tile_size, GPU_storage *s, \
+    int num_blocks, int threads_per_block);
 
 #endif  // GACT_H

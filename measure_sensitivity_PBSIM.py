@@ -12,9 +12,9 @@ def parse(line):
 	return map(int, re.findall('\d+', line))
 
 ref = 0 # if ref is 1, reference-based alignment is assumed, otherwise de novo
-extra = 1 # if extra is 1, add the reverse of the AB overlap (BA), should increase sensitivity, and halve specificity
+extra = 1 # if extra is 1, add the reverse of the AB overlap (BA), should increase sensitivity, and lower specificity
 remove_trivial = 1 # if equal to 1, removes all 'read X ovls with read X' overlaps
-recompute_tovls = 0 # if equal to 1, recomputes all theoretical overlaps based on the input files, otherwise, look for w_theoretical_overlaps
+recompute_tovls = 1 # if equal to 1, recomputes all theoretical overlaps based on the input files, otherwise, look for w_theoretical_overlaps
 ref_vs_read = 0 # if equal to 1, assume hovls are from ref vs read, otherwise from ref vs ref
 
 # thresholds to filter heuristic overlaps

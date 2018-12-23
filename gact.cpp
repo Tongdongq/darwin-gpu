@@ -227,6 +227,7 @@ void GACT (char *ref_str, char *query_str, \
 
 } // end GACT()
 
+#ifdef GPU
 void GACT_Batch(std::vector<GACT_call> calls, int num_calls, \
 bool complement, int offset, GPU_storage *s, \
 int match_score, int mismatch_score, \
@@ -414,12 +415,7 @@ std::ofstream &fout)
         t1 = std::chrono::high_resolution_clock::now();
 #endif
 
-#ifdef GPU
         int *out = Align_Batch_GPU(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate, tile_size, s, NUM_BLOCKS, THREADS_PER_BLOCK);
-#else
-        //BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, sub_mat, gap_open, gap_extend, ref_poss_b, query_poss_b, reverses, firsts_b, early_terminate);
-        BT_statess = Align_Batch(ref_seqs, query_seqs, ref_lens, query_lens, match_score, mismatch_score, gap_open, gap_extend, ref_lens, query_lens, reverses, firsts_b, early_terminate);
-#endif
 
 #ifdef TIME
         t2 = std::chrono::high_resolution_clock::now();
@@ -560,5 +556,6 @@ std::ofstream &fout)
         time_loop += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         printf("time_loop: %d ms, time_gpu: %d ms\n", time_loop, time_gpu);
 #endif
+#endif // GPU
 
 } // end GACT_Batch()

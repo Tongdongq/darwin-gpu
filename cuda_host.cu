@@ -68,7 +68,7 @@ GPU_storage *s, int num_blocks, int threads_per_block){
 
     for(int t = 0; t < BATCH_SIZE; ++t){
         if(ref_lens[t] == -1){ // if this thread is not stopped
-            ref_lens_b[t] = ref_lens[t];
+            ref_lens_b[t] = ref_lens[t]; // the GPU must also know this thread is idle
             continue;
         }
         ref_lens_b[t] = ref_lens[t];
@@ -142,7 +142,7 @@ GPU_storage *s, int num_blocks, int threads_per_block){
         }
         ref_curr = BATCH_SIZE * tile_size;
         query_curr = BATCH_SIZE * tile_size;
-    }
+    } // end prepare bases for every GPU thread
 
     uint32_t *packed_ref_seqs_d = s->packed_ref_seqs_d;
     uint32_t *packed_query_seqs_d = s->packed_query_seqs_d;
@@ -184,7 +184,7 @@ GPU_storage *s, int num_blocks, int threads_per_block){
     cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 5, cudaMemcpyDeviceToHost));
 #else
     cudaSafeCall(cudaMemcpyAsync(outs_b, outs_d, BATCH_SIZE * sizeof(int) * 2 * tile_size, cudaMemcpyDeviceToHost));
-#endif // NOSCORE
+#endif
 
     return outs_b;
 }
@@ -227,13 +227,12 @@ void GPU_init(int tile_size, int tile_overlap, int gap_open, int gap_extend, int
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].ref_offsets_d), BATCH_SIZE*sizeof(int)));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].query_offsets_d), BATCH_SIZE*sizeof(int)));
         cudaSafeCall(cudaMalloc((void**)&((*s)[i].outs_d), BATCH_SIZE*sizeof(int)*size_outs));
-        size_t free, total;
-        cudaMemGetInfo(&free,&total);
-        printf("%d MB free of total %d MB\n",free/1024/1024,total/1024/1024);
+        size_t free_mem, total_mem;
+        cudaMemGetInfo(&free_mem,&total_mem);
+        printf("%d MB free of total %d MB\n",free_mem/1024/1024,total_mem/1024/1024);
     }
 
     // set print buffer size (debug only)
-    //printf("NOTE: print buffer size is made larger\n");
     //cudaSafeCall(cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (1<<20)*50));
 }
 

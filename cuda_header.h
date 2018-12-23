@@ -20,12 +20,6 @@ struct CUDA_Stream_Holder {
     cudaStream_t stream;  
 };
 
-#ifdef NOSCORE
-    #ifndef GASAL
-        #error NOSCORE cannot be used without GASAL
-    #endif
-#endif
-
 #ifdef GPU
 __constant__ int _tile_size;
 __constant__ int _tile_overlap;

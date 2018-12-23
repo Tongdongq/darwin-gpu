@@ -15,6 +15,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #ifndef GACT_H
 #define GACT_H
 
+#if defined(NOSCORE) || defined(TIME)
+    #ifndef GPU
+        #error NOSCORE/TIME cannot be used without GPU
+    #endif
+#endif
+
 // actually declared in darwin.cpp, but gact.cpp also needs them
 #ifdef GPU
     extern int NUM_BLOCKS;

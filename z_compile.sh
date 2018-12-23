@@ -17,34 +17,12 @@ maxregcount=128
 for var in "$@"
 do
 	case "$var" in
-	"BATCH")
-		options="$options -D BATCH";;
 	"GPU")
 		options="$options -D GPU";;
-	"CMAT")
-		options="$options -D COALESCE_MATRICES";;
-	"CBASES")
-		options="$options -D COALESCE_BASES";;
 	"TIME")
 		options="$options -D TIME";;
-	"STREAM")
-		options="$options -D STREAM";;
-	"CDIR")
-		options="$options -D COMPRESS_DIR";;
-	"GASAL")
-		options="$options -D GASAL";;
-	"CPBASES")
-		options="$options -D COALESCE_PACKED_BASES";;
 	"NOSCORE")
 		options="$options -D NOSCORE";;
-	"32")
-		maxregcount=32;;
-	"64")
-		maxregcount=64;;
-	"128")
-		maxregcount=128;;
-	"256")
-		maxregcount=256;;
 	*)
 		printf "Error unkown option '$var'\n"
 		exit 1

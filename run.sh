@@ -8,7 +8,7 @@ BLOCKS=${2:-32}
 TPB=${3:-64}
 
 rm darwin.*.out
-time ./darwin reference.fasta reference.fasta $T $BLOCKS $TPB
+time ./darwin reads.fasta reads.fasta $T $BLOCKS $TPB
 
 last="$(head -n20 Makefile | grep "NCFLAGS" | grep -v "#")"
 if [[ $last == *"-O0"* ]]; then

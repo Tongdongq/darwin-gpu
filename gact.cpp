@@ -556,6 +556,6 @@ std::ofstream &fout)
         time_loop += std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         printf("time_loop: %d ms, time_gpu: %d ms\n", time_loop, time_gpu);
 #endif
-#endif // GPU
 
 } // end GACT_Batch()
+#endif // GPU

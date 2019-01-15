@@ -1,5 +1,5 @@
 
 # ignore fasta files
 *.fa
-.o
+*.o
 
